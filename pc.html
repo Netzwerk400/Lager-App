@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Lager App – PC</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #f4f5f7;
+  --surface: #ffffff;
+  --border:  #e2e4e9;
+  --text:    #1a1d23;
+  --muted:   #6b7280;
+  --accent:  #e63946;
+  --ok:      #16a34a;
+  --ok-bg:   #dcfce7;
+  --warn:    #dc2626;
+  --warn-bg: #fee2e2;
+  --blue:    #2563eb;
+  --sidebar: #1a1d23;
+  --font:    Arial, sans-serif;
+  --mono:    'Courier New', monospace;
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar { width: 220px; min-width: 220px; background: var(--sidebar); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; }
+.sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
+.sidebar-logo h1 { font-size: 17px; font-weight: 700; color: white; }
+.sidebar-logo p  { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 14px; font-weight: 600; border-left: 3px solid transparent; }
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+.nav-item.aktiv { background: rgba(255,255,255,0.1); color: white; border-left-color: var(--accent); }
+.nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; display: none; }
+.nav-badge.show { display: block; }
+.sidebar-bottom { margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.25); }
+
+/* MAIN */
+.main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.topbar-title { font-size: 18px; font-weight: 700; }
+.topbar-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.topbar-actions { display: flex; gap: 10px; }
+.content { padding: 28px 32px; }
+
+/* STATS */
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
+.stat-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 36px; font-weight: 700; font-family: var(--mono); margin-top: 6px; }
+.stat-card.ok   .stat-value { color: var(--ok); }
+.stat-card.warn .stat-value { color: var(--warn); }
+
+/* SCREEN */
+.screen { display: none; }
+.screen.aktiv { display: block; }
+
+/* TABELLE */
+.tbl-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.tbl-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.tbl-titel { font-size: 15px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+thead th { background: #f8f9fb; padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #fafafa; }
+tbody td { padding: 11px 14px; font-size: 14px; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font); }
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--blue);   color: white; }
+.btn-danger  { background: var(--accent); color: white; }
+.btn-success { background: var(--ok);     color: white; }
+.btn-ghost   { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+
+/* STATUS BADGE */
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge.ok   { background: var(--ok-bg);   color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+
+/* MENGE */
+.menge-wrap { display: flex; align-items: center; gap: 5px; }
+.mb { width: 26px; height: 26px; border-radius: 50%; border: none; font-size: 15px; font-weight: 700; cursor: pointer; }
+.mb.m { background: var(--warn-bg); color: var(--warn); }
+.mb.p { background: var(--ok-bg);   color: var(--ok); }
+.mz { font-family: var(--mono); font-weight: 700; min-width: 30px; text-align: center; }
+
+/* TABS */
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 9px; padding: 4px; margin-bottom: 18px; width: fit-content; }
+.tab-btn { padding: 7px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); font-family: var(--font); }
+.tab-btn.aktiv { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+/* IMPORT BOX */
+.import-box { background: var(--surface); border: 2px dashed var(--border); border-radius: 10px; padding: 40px; text-align: center; margin-bottom: 20px; cursor: pointer; }
+.import-box:hover { border-color: var(--blue); }
+
+/* TOAST */
+#toast { position: fixed; bottom: 24px; right: 24px; background: #1a1d23; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 999; }
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.fehler { background: var(--accent); }
+
+/* PRINT */
+@media print {
+  .sidebar, .topbar, .no-print { display: none !important; }
+  .main { margin-left: 0; }
+  #print-bereich { display: block !important; position: static !important; }
+}
+#print-bereich { display: none; position: fixed; inset: 0; background: white; z-index: 999; overflow-y: auto; padding: 20px; }
+#print-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 48px; background: var(--sidebar); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 1001; }
+.pt { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+.pt th { background: #1a1d23; color: white; padding: 7px 10px; text-align: left; }
+.pt td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+.pt tr:nth-child(even) td { background: #f9f9f9; }
+.pt-red { color: #e63946; font-weight: bold; }
+.pt-sec { background: #f0f0f0; padding: 7px 12px; font-weight: bold; font-size: 13px; margin: 14px 0 6px; border-left: 4px solid #1a1d23; }
+.ph { border-bottom: 3px solid #1a1d23; padding-bottom: 10px; margin-bottom: 18px; }
+.ph h1 { font-size: 19px; color: #1a1d23; }
+.ph p  { font-size: 12px; color: #666; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<!-- PRINT -->
+<div id="print-bereich">
+  <div id="print-toolbar">
+    <button onclick="schliesseDruck()" style="background:#e63946;color:white;border:none;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:bold;cursor:pointer;">✕ Schließen</button>
+    <div id="print-status" style="color:rgba(255,255,255,0.6);font-size:13px;"></div>
+    <button id="print-btn" onclick="window.print()" style="display:none;background:#2d6a4f;color:white;border:none;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:bold;cursor:pointer;">🖨️ Drucken</button>
+  </div>
+  <div id="print-inhalt" style="padding-top:56px;"></div>
+</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>📦 Lager App</h1>
+    <p>PC Version</p>
+  </div>
+  <div class="nav-item aktiv" onclick="zeigeScreen('status')"   id="nav-status">  <span>📋</span> Status</div>
+  <div class="nav-item"       onclick="zeigeScreen('eingabe')"  id="nav-eingabe">  <span>✏️</span> Bestand ändern</div>
+  <div class="nav-item"       onclick="zeigeScreen('bestellen')"id="nav-bestellen"><span>🛒</span> Bestellen <span class="nav-badge" id="nav-badge">0</span></div>
+  <div class="nav-item"       onclick="zeigeScreen('sync')"     id="nav-sync">     <span>🔄</span> Sync</div>
+  <div class="sidebar-bottom">Lager App v1.0</div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Statusübersicht</div>
+      <div class="topbar-sub"   id="topbar-sub">Alle Artikel – nur lesen</div>
+    </div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+
+  <div class="content">
+
+    <!-- STATUS -->
+    <div class="screen aktiv" id="screen-status">
+      <div class="stats-row">
+        <div class="stat-card">      <div class="stat-label">Gesamt</div>   <div class="stat-value" id="stat-total">0</div></div>
+        <div class="stat-card ok">   <div class="stat-label">OK</div>        <div class="stat-value" id="stat-ok">0</div></div>
+        <div class="stat-card warn"> <div class="stat-label">Bestellen</div> <div class="stat-value" id="stat-warn">0</div></div>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">Alle Artikel</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Meldebestand</th><th>Mindestbestand</th><th>Status</th></tr></thead>
+        <tbody id="status-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- BESTAND ÄNDERN -->
+    <div class="screen" id="screen-eingabe">
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">Alle Artikel – Werte veränderbar</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Meldebestand</th><th>Mindestbestand</th><th>Bestellmenge</th><th>Status</th></tr></thead>
+        <tbody id="eingabe-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- BESTELLEN -->
+    <div class="screen" id="screen-bestellen">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div class="tabs">
+          <button class="tab-btn aktiv" id="tab-akq" onclick="zeigeBestellTab('akq')">📦 Liste AKQ</button>
+          <button class="tab-btn"       id="tab-esa" onclick="zeigeBestellTab('esa')">📦 Liste ESA</button>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost no-print"  onclick="bestellungDrucken()">🖨️ Drucken</button>
+          <button class="btn btn-danger no-print" onclick="bestellungSenden()">📧 Gmail</button>
+        </div>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel" id="bestell-titel">Nachzubestellen</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Meldebestand</th><th>Bestellmenge</th></tr></thead>
+        <tbody id="bestell-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- SYNC -->
+    <div class="screen" id="screen-sync">
+      <div class="import-box" onclick="document.getElementById('import-file').click()">
+        <div style="font-size:40px;margin-bottom:10px;">📥</div>
+        <div style="font-size:15px;font-weight:600;">Daten von der Handy-App importieren</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px;">JSON Export Datei hier ablegen oder klicken</div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importDaten(this)">
+      </div>
+      <div class="tbl-box" style="margin-bottom:18px;">
+        <div class="tbl-header"><div class="tbl-titel">📤 Exportieren</div></div>
+        <div style="padding:20px;display:flex;gap:12px;">
+          <button class="btn btn-primary" onclick="exportDaten()">📤 JSON Export</button>
+          <button class="btn btn-ghost"   onclick="exportSharePoint()">📋 SharePoint</button>
+        </div>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">⚙️ Einstellungen</div></div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="flex:1;"><div style="font-weight:600;font-size:14px;">E-Mail für Bestellungen</div><div style="font-size:12px;color:var(--muted);">Wird für Gmail verwendet</div></div>
+            <input type="email" id="email-setting" placeholder="bestellung@firma.de" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;width:260px;" onchange="LS.set('bestell_email',this.value)">
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="flex:1;"><div style="font-weight:600;font-size:14px;color:var(--warn);">Alle Daten zurücksetzen</div></div>
+            <button class="btn btn-ghost" style="border-color:var(--warn);color:var(--warn);" onclick="allesZuruecksetzen()">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const STAMM = [
+  {nr:'1',  name:'HDMI 1,5 m',                     lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:14},
+  {nr:'2',  name:'HDMI 2,0 m',                     lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:15},
+  {nr:'3',  name:'HDMI 3,0 m',                     lagerort:'AKQ-Regal',   melde:2,  mindest:10, spId:55},
+  {nr:'4',  name:'HDMI 5,0 m',                     lagerort:'AKQ-Regal',   melde:2,  mindest:10, spId:51},
+  {nr:'5',  name:'Display Port 5,0 m',             lagerort:'AKQ-Regal',   melde:2,  mindest:10, spId:52},
+  {nr:'6',  name:'Display Port 2,0 m',             lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:16},
+  {nr:'7',  name:'Display Port / HDMI 2,0 m',      lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:17},
+  {nr:'8',  name:'USB A 3.0 / USB B Powered 3.0',  lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:21},
+  {nr:'9',  name:'mini DP / Display Port 2m',      lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:7},
+  {nr:'10', name:'mini DP / mini Display Port',    lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:48},
+  {nr:'11', name:'USB A / USB C',                  lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:3},
+  {nr:'12', name:'USB C / USB C',                  lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:4},
+  {nr:'13', name:'USB A Verlängerung',             lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:20},
+  {nr:'14', name:'USB 2.0 / HDMI',                 lagerort:'AKQ-Regal',   melde:3,  mindest:10, spId:11},
+  {nr:'15', name:'USB C / HDMI',                   lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:5},
+  {nr:'16', name:'USB C / Display Port',           lagerort:'AKQ-Regal',   melde:3,  mindest:10, spId:6},
+  {nr:'17', name:'USB C Lightning 1,0 m',          lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:10},
+  {nr:'18', name:'mini DP / DVI + mini DP / HDMI', lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:9},
+  {nr:'19', name:'mini DP / VGA',                  lagerort:'AKQ-Regal',   melde:3,  mindest:10, spId:8},
+  {nr:'20', name:'Druckerkabel USB A / USB B',     lagerort:'AKQ-Regal',   melde:0,  mindest:10, spId:22},
+  {nr:'21', name:'Kaltgeräte-Stecker',             lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:18},
+  {nr:'22', name:'Micky Maus Stecker / Kabel',     lagerort:'Lager U2',    melde:10, mindest:30, spId:19},
+  {nr:'23', name:'Mehrfachsteckdose klein',         lagerort:'Lager U2',    melde:5,  mindest:15, spId:23},
+  {nr:'24', name:'Mehrfachsteckdose groß',          lagerort:'Lager U2',    melde:5,  mindest:15, spId:24},
+  {nr:'25', name:'Audio Klinke 3,5 mm',            lagerort:'Lager U2',    melde:5,  mindest:15, spId:13},
+  {nr:'26', name:'LAN Kabel 0,5 m',                lagerort:'ESA-Regal',   melde:10, mindest:30, spId:25},
+  {nr:'27', name:'LAN Kabel 1,0 m',                lagerort:'ESA-Regal',   melde:10, mindest:30, spId:26},
+  {nr:'28', name:'LAN Kabel 1,5 m',                lagerort:'ESA-Regal',   melde:15, mindest:30, spId:27},
+  {nr:'29', name:'LAN Kabel 2,0 m',                lagerort:'ESA-Regal',   melde:15, mindest:30, spId:28},
+  {nr:'30', name:'LAN Kabel 3,0 m',                lagerort:'ESA-Regal',   melde:15, mindest:30, spId:29},
+  {nr:'31', name:'LAN Kabel 5,0 m',                lagerort:'ESA-Regal',   melde:10, mindest:30, spId:30},
+  {nr:'33', name:'LAN Kabel 7,5 m',                lagerort:'ESA-Regal',   melde:5,  mindest:15, spId:32},
+  {nr:'34', name:'LAN Kabel 10,0 m',               lagerort:'ESA-Regal',   melde:5,  mindest:15, spId:33},
+  {nr:'35', name:'LAN Kabel 15,0 m',               lagerort:'ESA-Regal',   melde:5,  mindest:15, spId:34},
+  {nr:'36', name:'Maus',                           lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:36},
+  {nr:'37', name:'Tastatur',                       lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:37},
+  {nr:'38', name:'Maus + Tastatur',                lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:38},
+  {nr:'39', name:'ESA USB C / USB C 2m',           lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:39},
+  {nr:'40', name:'USB C 4 Kabel 2m',               lagerort:'ESA-Schrank',  melde:0,  mindest:10, spId:40},
+  {nr:'41', name:'DVD Laufwerke',                  lagerort:'ESA-Schrank',  melde:2,  mindest:10, spId:41},
+  {nr:'42', name:'Stift',                          lagerort:'ESA-Schrank',  melde:5,  mindest:15, spId:42},
+  {nr:'43', name:'USB Adapter / LAN',              lagerort:'ESA-Schrank',  melde:5,  mindest:15, spId:43},
+  {nr:'44', name:'Lenovo Tasche',                  lagerort:'ESA-Regal',   melde:10, mindest:30, spId:50},
+  {nr:'45', name:'AKQ LAN Kabel 2,0 m',           lagerort:'Lager U2',    melde:10, mindest:30, spId:56},
+  {nr:'46', name:'AKQ LAN Kabel 3,0 m',           lagerort:'Lager U2',    melde:10, mindest:30, spId:57},
+  {nr:'47', name:'AKQ LAN Kabel 5,0 m',           lagerort:'Lager U2',    melde:10, mindest:30, spId:58},
+  {nr:'48', name:'Display Port 3,0 m',             lagerort:'Lager U2',    melde:10, mindest:30, spId:59},
+];
+
+const ISTBESTAND = {'1':13,'2':6,'3':3,'4':1,'5':4,'6':11,'7':3,'8':10,'9':8,'10':10,'11':8,'12':10,'13':10,'14':2,'15':4,'16':3,'17':2,'18':1,'19':1,'20':10,'21':11,'22':10,'23':8,'24':5,'25':16,'26':27,'27':23,'28':18,'29':19,'30':4,'31':27,'33':44,'34':18,'35':16,'36':30,'37':38,'38':31,'39':4,'40':15,'41':7,'42':34,'43':17,'44':28,'45':0,'46':0,'47':0,'48':0};
+
+const LS = {
+  get: (k,d) => { try { const v=localStorage.getItem(k); return v!==null?JSON.parse(v):d; } catch{return d;} },
+  set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} }
+};
+
+const ladeArtikel  = () => LS.get('lager_artikel', [...STAMM]);
+const ladeBestand  = () => LS.get('lager_bestand', {...ISTBESTAND});
+const ladeGrenzen  = () => LS.get('lager_grenzen', {});
+
+function getGrenzen(nr) {
+  const g=ladeGrenzen(); const s=ladeArtikel().find(a=>a.nr===nr)||{};
+  return { melde:(g[nr]?.melde??s.melde??10), mindest:(g[nr]?.mindest??s.mindest??30) };
+}
+
+function ladeBestellmengen() { return LS.get('lager_bestellmengen',{}); }
+function ladeBestellmenge(nr) { const m=ladeBestellmengen(); return m[nr]!==undefined?m[nr]:30; }
+
+// NAVIGATION
+const SCREENS = {
+  status:    ['Statusübersicht',    'Alle Artikel – nur lesen'],
+  eingabe:   ['Bestand ändern',     'Alle Werte direkt veränderbar'],
+  bestellen: ['Bestelllisten',      'AKQ + ESA'],
+  sync:      ['Sync & Einstellungen','Import / Export'],
+};
+
+function zeigeScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('aktiv'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('aktiv'));
+  document.getElementById('screen-'+name).classList.add('aktiv');
+  document.getElementById('nav-'+name).classList.add('aktiv');
+  document.getElementById('topbar-title').textContent = SCREENS[name][0];
+  document.getElementById('topbar-sub').textContent   = SCREENS[name][1];
+  if (name==='status')    bauStatus();
+  if (name==='eingabe')   bauEingabe();
+  if (name==='bestellen') zeigeBestellTab(aktTab);
+}
+
+// STATS
+function aktualisierStats() {
+  const artikel=ladeArtikel(); const bestand=ladeBestand();
+  const warnAll = artikel.filter(a=>(bestand[a.nr]??0)<=getGrenzen(a.nr).melde);
+  const warnBest = warnAll.filter(a=>a.lagerort!=='Lager U2'&&!(parseInt(a.nr)>=22&&parseInt(a.nr)<=25));
+  document.getElementById('stat-total').textContent = artikel.length;
+  document.getElementById('stat-ok').textContent    = artikel.length-warnAll.length;
+  document.getElementById('stat-warn').textContent  = warnBest.length;
+  const badge=document.getElementById('nav-badge');
+  badge.textContent=warnBest.length; badge.classList.toggle('show',warnBest.length>0);
+}
+
+// STATUS
+function bauStatus() {
+  const bestand=ladeBestand(); const artikel=ladeArtikel();
+  document.getElementById('status-tbody').innerHTML = artikel.map(a=>{
+    const g=getGrenzen(a.nr); const ist=bestand[a.nr]??0; const ok=ist>g.melde;
+    return `<tr><td style="font-family:var(--mono)">${a.nr}</td><td style="font-weight:500">${a.name}</td><td style="color:var(--muted)">${a.lagerort}</td><td style="font-family:var(--mono);font-weight:700">${ist}</td><td style="font-family:var(--mono);color:var(--accent)">${g.melde}</td><td style="font-family:var(--mono);color:var(--blue)">${g.mindest}</td><td><span class="badge ${ok?'ok':'warn'}">${ok?'✅ OK':'⚠️ Bestellen'}</span></td></tr>`;
+  }).join('');
+}
+
+// EINGABE
+function bauEingabe() {
+  const bestand=ladeBestand(); const artikel=ladeArtikel();
+  document.getElementById('eingabe-tbody').innerHTML = artikel.map(a=>{
+    const g=getGrenzen(a.nr); const ist=bestand[a.nr]??0; const bm=ladeBestellmenge(a.nr); const ok=ist>g.melde;
+    return `<tr>
+      <td style="font-family:var(--mono)">${a.nr}</td>
+      <td style="font-weight:500">${a.name}</td>
+      <td style="color:var(--muted);font-size:12px">${a.lagerort}</td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="wertAendern('bestand','${a.nr}',-1)">−</button><span class="mz" id="e-b-${a.nr}">${ist}</span><button class="mb p" onclick="wertAendern('bestand','${a.nr}',+1)">+</button></div></td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="wertAendern('melde','${a.nr}',-1)">−</button><span class="mz" style="color:var(--accent)" id="e-m-${a.nr}">${g.melde}</span><button class="mb p" onclick="wertAendern('melde','${a.nr}',+1)">+</button></div></td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="wertAendern('mindest','${a.nr}',-1)">−</button><span class="mz" style="color:var(--blue)" id="e-i-${a.nr}">${g.mindest}</span><button class="mb p" onclick="wertAendern('mindest','${a.nr}',+1)">+</button></div></td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="bestellmengeAendern('${a.nr}',-1)">−</button><span class="mz" id="bm-${a.nr}">${bm}</span><button class="mb p" onclick="bestellmengeAendern('${a.nr}',+1)">+</button></div></td>
+      <td><span class="badge ${ok?'ok':'warn'}" id="e-s-${a.nr}">${ok?'✅ OK':'⚠️ Bestellen'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function wertAendern(typ, nr, delta) {
+  if (typ==='bestand') {
+    const b=ladeBestand(); b[nr]=Math.max(0,(b[nr]??0)+delta); LS.set('lager_bestand',b);
+    const el=document.getElementById('e-b-'+nr); if(el) el.textContent=b[nr];
+  } else {
+    const g=ladeGrenzen(); if(!g[nr]){const a=ladeArtikel().find(x=>x.nr===nr)||{}; g[nr]={melde:a.melde??10,mindest:a.mindest??30};}
+    g[nr][typ]=Math.max(0,(g[nr][typ]??0)+delta); LS.set('lager_grenzen',g);
+    const el=document.getElementById('e-'+(typ==='melde'?'m':'i')+'-'+nr); if(el) el.textContent=g[nr][typ];
+  }
+  const b=ladeBestand(); const g2=getGrenzen(nr); const ok=(b[nr]??0)>g2.melde;
+  const badge=document.getElementById('e-s-'+nr);
+  if(badge){badge.className='badge '+(ok?'ok':'warn'); badge.textContent=ok?'✅ OK':'⚠️ Bestellen';}
+  aktualisierStats(); bauStatus();
+}
+
+function bestellmengeAendern(nr, delta) {
+  const m=ladeBestellmengen(); m[nr]=Math.max(0,ladeBestellmenge(nr)+delta); LS.set('lager_bestellmengen',m);
+  const el=document.getElementById('bm-'+nr); if(el) el.textContent=m[nr];
+}
+
+// BESTELLLISTEN
+let aktTab='akq';
+function zeigeBestellTab(tab) {
+  aktTab=tab;
+  document.getElementById('tab-akq').classList.toggle('aktiv',tab==='akq');
+  document.getElementById('tab-esa').classList.toggle('aktiv',tab==='esa');
+  const b=ladeBestand(); const artikel=ladeArtikel();
+  const liste=artikel.filter(a=>{
+    if(a.lagerort==='Lager U2') return false;
+    const nr=parseInt(a.nr); if(nr>=22&&nr<=25) return false;
+    if((b[a.nr]??0)>getGrenzen(a.nr).melde) return false;
+    return tab==='akq'?(nr>=1&&nr<=21):(nr>=26&&nr<=44);
+  });
+  document.getElementById('bestell-titel').textContent=(tab==='akq'?'Liste AKQ':'Liste ESA')+' – '+liste.length+' Artikel';
+  const tbody=document.getElementById('bestell-tbody');
+  if(!liste.length){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted)">😊 Kein Artikel unter Meldebestand</td></tr>`;return;}
+  tbody.innerHTML=liste.map(a=>{
+    const ist=b[a.nr]??0; const g=getGrenzen(a.nr); const bm=ladeBestellmenge(a.nr);
+    return `<tr><td style="font-family:var(--mono)">${a.nr}</td><td style="font-weight:500">${a.name}</td><td style="color:var(--muted)">${a.lagerort}</td><td style="font-family:var(--mono);color:var(--warn);font-weight:700">${ist}</td><td style="font-family:var(--mono)">${g.melde}</td><td><div class="menge-wrap"><button class="mb m" onclick="bestellmengeAendern('${a.nr}',-1)">−</button><span class="mz" id="bm2-${a.nr}">${bm}</span><button class="mb p" onclick="bestellmengeAendern2('${a.nr}',+1)">+</button></div></td></tr>`;
+  }).join('');
+}
+
+function bestellmengeAendern2(nr, delta) {
+  const m=ladeBestellmengen(); m[nr]=Math.max(0,ladeBestellmenge(nr)+delta); LS.set('lager_bestellmengen',m);
+  const el=document.getElementById('bm2-'+nr); if(el) el.textContent=m[nr];
+  const el2=document.getElementById('bm-'+nr);  if(el2) el2.textContent=m[nr];
+}
+
+// GMAIL
+function bestellungSenden() {
+  const b=ladeBestand(); const artikel=ladeArtikel();
+  const bestellbar=artikel.filter(a=>{
+    if(a.lagerort==='Lager U2') return false;
+    const nr=parseInt(a.nr); if(nr>=22&&nr<=25) return false;
+    return (b[a.nr]??0)<=getGrenzen(a.nr).melde;
+  });
+  if(!bestellbar.length){toast('Keine Artikel zum Bestellen!',true);return;}
+  const akq=bestellbar.filter(a=>parseInt(a.nr)>=1&&parseInt(a.nr)<=21);
+  const esa=bestellbar.filter(a=>parseInt(a.nr)>=26&&parseInt(a.nr)<=44);
+  const d=new Date().toLocaleDateString('de-DE');
+  const u=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  let body='📦 LAGER BESTELLUNG\nDatum: '+d+' · '+u+'\n\n';
+  if(akq.length){body+='═══ LISTE AKQ ═══\n\n';akq.forEach(a=>{const ist=b[a.nr]??0;body+='▸ Nr.'+a.nr+' – '+a.name+'\n  Bestand: '+ist+'  |  Melde: '+getGrenzen(a.nr).melde+'  |  Bestellen: '+ladeBestellmenge(a.nr)+'\n\n';});}
+  if(esa.length){body+='═══ LISTE ESA ═══\n\n';esa.forEach(a=>{const ist=b[a.nr]??0;body+='▸ Nr.'+a.nr+' – '+a.name+'\n  Bestand: '+ist+'  |  Melde: '+getGrenzen(a.nr).melde+'  |  Bestellen: '+ladeBestellmenge(a.nr)+'\n\n';});}
+  const email=LS.get('bestell_email','LagerApp400@gmail.com');
+  window.location.href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email)+'&su='+encodeURIComponent('Lager Bestellung – '+d)+'&body='+encodeURIComponent(body);
+  toast('✅ Gmail wird geöffnet!');
+}
+
+// DRUCKEN
+function bestellungDrucken() {
+  const b=ladeBestand(); const artikel=ladeArtikel();
+  const bestellbar=artikel.filter(a=>{if(a.lagerort==='Lager U2')return false;const nr=parseInt(a.nr);if(nr>=22&&nr<=25)return false;return(b[a.nr]??0)<=getGrenzen(a.nr).melde;});
+  if(!bestellbar.length){toast('Keine Artikel!',true);return;}
+  const akq=bestellbar.filter(a=>parseInt(a.nr)>=1&&parseInt(a.nr)<=21);
+  const esa=bestellbar.filter(a=>parseInt(a.nr)>=26&&parseInt(a.nr)<=44);
+  const d=new Date().toLocaleDateString('de-DE'); const u=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const rows=l=>l.map(a=>`<tr><td>${a.nr}</td><td>${a.name}</td><td>${a.lagerort}</td><td style="text-align:center">${b[a.nr]??0}</td><td style="text-align:center">${getGrenzen(a.nr).melde}</td><td style="text-align:center" class="pt-red">${ladeBestellmenge(a.nr)}</td></tr>`).join('');
+  const tbl=l=>!l.length?'':l.length?`<div class="pt-sec">${l[0].lagerort.includes('AKQ')||parseInt(l[0].nr)<=21?'📦 Liste AKQ':'📦 Liste ESA'}</div><table class="pt"><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Melde</th><th style="color:#ffaaaa">Bestellen</th></tr></thead><tbody>${rows(l)}</tbody></table>`:'';
+  document.getElementById('print-inhalt').innerHTML=`<div style="position:fixed;top:10px;right:10px;z-index:1001"><button onclick="window.print()" style="background:#2d6a4f;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:bold;cursor:pointer">🖨️ Drucken</button></div><div class="ph"><h1>📦 Lager Bestellung</h1><p>Datum: ${d} · ${u} · ${bestellbar.length} Positionen</p></div>${tbl(akq)}${tbl(esa)}<p style="font-size:11px;color:#aaa;margin-top:18px">Erstellt: ${d} · ${u}</p>`;
+  document.getElementById('print-bereich').style.display='block';
+  document.getElementById('print-status').textContent='✅ Bereit';
+  document.getElementById('print-btn').style.display='block';
+}
+
+function schliesseDruck() {
+  document.getElementById('print-bereich').style.display='none';
+  document.getElementById('print-btn').style.display='none';
+}
+
+// EXPORT / IMPORT
+function exportDaten() {
+  const data={version:'1.0',datum:new Date().toLocaleString('de-DE'),artikel:ladeArtikel(),bestand:ladeBestand(),grenzen:ladeGrenzen()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='lager_export_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
+  toast('✅ Export fertig!');
+}
+
+function exportSharePoint() {
+  const artikel=ladeArtikel(); const bestand=ladeBestand();
+  let csv='ID\tNr.\tTitel\tIstbestand\tMeldebestand\tLagerort\n';
+  artikel.forEach(a=>{const ist=bestand[a.nr]??0; const g=getGrenzen(a.nr); csv+=(a.spId||'')+'\t'+a.nr+'\t'+a.name+'\t'+ist+'\t'+g.melde+'\t'+a.lagerort+'\n';});
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/tab-separated-values;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const el=document.createElement('a');
+  el.href=url; el.download='lager_sharepoint_'+new Date().toISOString().slice(0,10)+'.tsv'; el.click(); URL.revokeObjectURL(url);
+  toast('✅ SharePoint Export fertig!');
+}
+
+function importDaten(input) {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const data=JSON.parse(e.target.result);
+      if(data.artikel) LS.set('lager_artikel',data.artikel);
+      if(data.bestand) LS.set('lager_bestand',data.bestand);
+      if(data.grenzen) LS.set('lager_grenzen',data.grenzen);
+      aktualisierStats(); bauStatus(); bauEingabe();
+      toast('✅ Import erfolgreich!');
+    } catch{toast('❌ Ungültige Datei!',true);}
+  };
+  reader.readAsText(file);
+}
+
+function allesZuruecksetzen() {
+  if(!confirm('ACHTUNG: Alle Daten zurücksetzen?')) return;
+  LS.set('lager_artikel',[...STAMM]); LS.set('lager_bestand',{...ISTBESTAND});
+  localStorage.removeItem('lager_grenzen');
+  aktualisierStats(); bauStatus(); bauEingabe();
+  toast('✅ Zurückgesetzt!');
+}
+
+// TOAST
+let tt=null;
+function toast(msg,fehler=false){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(fehler?' fehler':'');clearTimeout(tt);tt=setTimeout(()=>t.className='',2800);}
+
+// START
+LS.set('lager_artikel',[...STAMM]);
+if(!localStorage.getItem('lager_bestand')) LS.set('lager_bestand',{...ISTBESTAND});
+document.getElementById('email-setting').value=LS.get('bestell_email','LagerApp400@gmail.com');
+aktualisierStats();
+bauStatus();
+bauEingabe();
+</script>
+</body>
+</html>
