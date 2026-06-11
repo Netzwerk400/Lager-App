@@ -1348,6 +1348,8 @@ function speichern() {
     zeit:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})});
   LS.set('lager_verlauf', v.slice(0,30));
   toast('✅ Bestätigt!');
+  fbIgnoreNext = true;
+  fbSchreibeBestand(ladeBestand());
   aktualisierStats();
   bauVerlauf();
   setTimeout(() => karteSchliessen(), 800);
