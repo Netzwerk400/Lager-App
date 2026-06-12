@@ -630,9 +630,9 @@ function importDaten(input) {
   reader.onload=e=>{
     try {
       const data=JSON.parse(e.target.result);
-      if(data.artikel) LS.set('lager_artikel',data.artikel);
-      if(data.bestand) LS.set('lager_bestand',data.bestand);
-      if(data.grenzen) LS.set('lager_grenzen',data.grenzen);
+      if(data.artikel) { LS.set('lager_artikel',data.artikel); fbIgnoreArtikel=true; fbSchreibeArtikel(data.artikel); }
+      if(data.bestand) { LS.set('lager_bestand',data.bestand); fbIgnore=true; fbSchreibeBestand(data.bestand); }
+      if(data.grenzen) { LS.set('lager_grenzen',data.grenzen); fbSchreibeGrenzen(data.grenzen); }
       aktualisierStats(); bauStatus(); bauEingabe();
       toast('✅ Import erfolgreich!');
     } catch{toast('❌ Ungültige Datei!',true);}
@@ -644,6 +644,8 @@ function allesZuruecksetzen() {
   if(!confirm('ACHTUNG: Alle Daten zurücksetzen?')) return;
   LS.set('lager_artikel',[...STAMM]); LS.set('lager_bestand',{...ISTBESTAND});
   localStorage.removeItem('lager_grenzen');
+  fbIgnoreArtikel=true; fbSchreibeArtikel([...STAMM]);
+  fbIgnore=true; fbSchreibeBestand({...ISTBESTAND});
   aktualisierStats(); bauStatus(); bauEingabe();
   toast('✅ Zurückgesetzt!');
 }
@@ -669,6 +671,8 @@ function artikelHinzufuegen() {
   artikel.push({nr,name,lagerort:lager,melde,mindest});
   artikel.sort((a,b)=>parseInt(a.nr)-parseInt(b.nr));
   LS.set('lager_artikel',artikel);
+  fbIgnoreArtikel = true;
+  fbSchreibeArtikel(artikel);
   document.getElementById('neu-nr').value='';
   document.getElementById('neu-name').value='';
   document.getElementById('neu-melde').value='';
@@ -679,7 +683,10 @@ function artikelHinzufuegen() {
 
 function artikelLoeschen(nr) {
   if(!confirm('Artikel Nr.'+nr+' wirklich löschen?')) return;
-  LS.set('lager_artikel',ladeArtikel().filter(a=>a.nr!==nr));
+  const artikel = ladeArtikel().filter(a=>a.nr!==nr);
+  LS.set('lager_artikel',artikel);
+  fbIgnoreArtikel = true;
+  fbSchreibeArtikel(artikel);
   bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
   toast('✅ Gelöscht!');
 }
@@ -693,7 +700,7 @@ let tt=null;
 function toast(msg,fehler=false){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(fehler?' fehler':'');clearTimeout(tt);tt=setTimeout(()=>t.className='',2800);}
 
 // START
-LS.set('lager_artikel',[...STAMM]);
+if(!localStorage.getItem('lager_artikel')) LS.set('lager_artikel',[...STAMM]);
 if(!localStorage.getItem('lager_bestand')) LS.set('lager_bestand',{...ISTBESTAND});
 document.getElementById('email-setting').value=LS.get('bestell_email','LagerApp400@gmail.com');
 aktualisierStats();
@@ -735,6 +742,9 @@ function fbSchreibeBestand(b) {
 function fbSchreibeGrenzen(g) {
   db.ref('lager/grenzen').set(g).catch(e => console.log('FB Fehler:', e));
 }
+function fbSchreibeArtikel(a) {
+  db.ref('lager/artikel').set(a).catch(e => console.log('FB Fehler:', e));
+}
 
 // Änderungen vom Handy empfangen
 let fbIgnore = false;
@@ -758,6 +768,19 @@ db.ref('lager/grenzen').on('value', snap => {
   }
 });
 
+// Artikel-Änderungen vom Handy empfangen
+let fbIgnoreArtikel = false;
+db.ref('lager/artikel').on('value', snap => {
+  if (fbIgnoreArtikel) { fbIgnoreArtikel = false; return; }
+  const fbA = snap.val();
+  if (!fbA) return;
+  if (JSON.stringify(fbA) !== JSON.stringify(ladeArtikel())) {
+    LS.set('lager_artikel', fbA);
+    bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
+    toast('🔄 Artikel-Sync vom Handy!');
+  }
+});
+
 // wertAendern patchen → nach jeder Änderung Firebase updaten
 const _origWertAendern = wertAendern;
 wertAendern = function(typ, nr, delta) {
@@ -772,6 +795,12 @@ db.ref('lager/bestand').once('value', snap => {
   if (!snap.val()) {
     fbSchreibeBestand(ladeBestand());
     fbSchreibeGrenzen(ladeGrenzen());
+  }
+});
+
+db.ref('lager/artikel').once('value', snap => {
+  if (!snap.val()) {
+    fbSchreibeArtikel(ladeArtikel());
   }
 });
 </script>
