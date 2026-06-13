@@ -368,8 +368,18 @@ body {
   <!-- ══ SCREEN: SCAN ══ -->
   <div class="screen aktiv" id="screen-scan">
 
-    <!-- OFFLINE SCANNER -->
-    <button class="btn btn-scan-start" onclick="startOfflineScan()">📱 Artikel scannen</button>
+    <!-- LIVE KAMERA SCANNER -->
+    <button class="btn btn-scan-start" id="btn-scan-start" onclick="startScan()">📷 Live-Scan starten</button>
+    <button class="btn btn-danger" id="btn-scan-stop" style="display:none" onclick="stopScan()">⏹ Scan stoppen</button>
+
+    <div id="kamera-box" style="display:none">
+      <div id="video"></div>
+      <div class="kamera-overlay"><div class="kamera-rahmen"></div></div>
+    </div>
+    <div class="scan-hinweis" id="scan-hinweis" style="display:none">QR-Code vor die Kamera halten…</div>
+
+    <!-- OFFLINE SCANNER (Fallback per Foto) -->
+    <button class="btn btn-ghost" onclick="startOfflineScan()" style="margin-top:10px">📸 Foto-Scan (Fallback)</button>
     <input type="text" id="offline-qr-input" style="display:none; width:100%; padding:14px; border-radius:12px; border:2px solid #e5e7eb; font-size:16px; font-family:var(--font);" placeholder="Nummer eingeben …" oninput="offlineQrEingabe(this.value)">
 
     <!-- ARTIKEL KARTE -->
