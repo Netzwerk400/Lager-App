@@ -7,9 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 <style>
 :root {
   --bg:       #0f0f1a;
@@ -69,17 +66,6 @@ body {
 }
 .app-logo-text h1 { color: white; font-size: 17px; font-weight: 700; }
 .app-logo-text p  { color: rgba(255,255,255,0.4); font-size: 11px; font-family: var(--mono); letter-spacing: 1px; }
-
-.sync-status {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 600; font-family: var(--mono);
-  padding: 5px 10px; border-radius: 20px;
-  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5);
-  transition: all 0.3s;
-}
-.sync-status.online  { background: rgba(45,106,79,0.3);  color: #6ee7b7; }
-.sync-status.offline { background: rgba(230,57,70,0.3);  color: #fca5a5; }
-.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 
 .header-export-btn {
   background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
@@ -340,9 +326,58 @@ body {
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.1s;
 }
+  /* DRUCK */
+  @media print {
+    body { background: white !important; }
+    .bottom-nav, .app-header { display: none !important; }
+    #print-bereich { display: block !important; position: static !important; overflow: visible !important; }
+    .screen { display: none !important; }
+    #print-toolbar { display: none !important; }
+    @page { margin: 5mm; size: A4; }
+  }
+
+  #print-bereich {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 999;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    overflow-y: auto;
+  }
+
+  .print-header { border-bottom: 3px solid #1a1a2e; padding-bottom: 12px; margin-bottom: 20px; }
+  .print-header h1 { font-size: 20px; color: #1a1a2e; margin: 0; }
+  .print-header p  { font-size: 12px; color: #666; margin: 4px 0 0; }
+
+  .print-section { background: #f0f0f0; padding: 8px 12px; font-weight: bold; font-size: 13px; margin: 16px 0 6px; border-left: 4px solid #1a1a2e; }
+
+  .print-tabelle { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+  .print-tabelle th { background: #1a1a2e; color: white; padding: 7px 8px; text-align: left; }
+  .print-tabelle td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+  .print-tabelle tr:nth-child(even) td { background: #f9f9f9; }
+  .print-bestellen { color: #e63946; font-weight: bold; font-size: 14px; }
+
+  #print-close {
+    position: fixed; top: 10px; right: 10px;
+    background: #e63946; color: white; border: none;
+    border-radius: 8px; padding: 8px 16px; font-size: 14px;
+    font-weight: bold; cursor: pointer; z-index: 1000;
+  }
 </style>
 </head>
 <body>
+<!-- PRINT BEREICH -->
+<div id="print-bereich">
+  <div id="print-toolbar" style="position:fixed; top:0; left:0; right:0; height:50px; background:#1a1a2e; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:1001;">
+    <button onclick="schliesseDruck()" style="background:#e63946; color:white; border:none; border-radius:8px; padding:8px 18px; font-size:14px; font-weight:bold; cursor:pointer;">✕ Schließen</button>
+    <div id="print-status" style="color:rgba(255,255,255,0.6); font-size:13px;">⏳ Wird vorbereitet…</div>
+    <button id="print-btn" onclick="window.print()" style="display:none; background:#2d6a4f; color:white; border:none; border-radius:8px; padding:8px 18px; font-size:14px; font-weight:bold; cursor:pointer;">Drucken</button>
+  </div>
+  <div id="print-inhalt" style="padding-top:60px;"></div>
+</div>
+
 <div class="app">
 
   <!-- HEADER -->
@@ -356,7 +391,6 @@ body {
         </div>
       </div>
       <button class="header-export-btn" onclick="exportDaten()">⬆️ Export</button>
-      <div class="sync-status" id="sync-status"><span class="sync-dot"></span><span id="sync-text">…</span></div>
     </div>
     <div class="stats-leiste">
       <div class="stat-chip total"><span class="stat-num" id="stat-total">—</span> Artikel</div>
@@ -441,6 +475,9 @@ body {
 
     <!-- BUTTONS -->
     <div style="display:flex; gap:10px;">
+      <button onclick="bestellungDrucken()" style="flex:1; background:#2d6a4f; color:white; border:none; border-radius:14px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; font-family:var(--font);">
+        Drucken
+      </button>
       <button onclick="bestellungSenden()" style="flex:1; background:var(--accent); color:white; border:none; border-radius:14px; padding:16px; font-size:16px; font-weight:700; cursor:pointer; font-family:var(--font);">
         📧 Gmail
       </button>
@@ -572,13 +609,17 @@ body {
       <div class="trennlinie"></div>
       <div class="einst-zeile">
         <div>
+          <div class="einst-label">🏷️ Schilder drucken</div>
+          <div class="einst-sub">QR-Code Schilder für alle Lagerorte</div>
+        </div>
+        <button class="btn btn-primary" style="width:auto; padding:10px 16px; font-size:14px;" onclick="zeigeSchilder()">Drucken</button>
+      </div>
+      <div class="einst-zeile">
+        <div>
           <div class="einst-label">📤 Daten exportieren</div>
-          <div class="einst-sub">Bestand speichern oder senden</div>
+          <div class="einst-sub">Bestand als Textdatei speichern</div>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-primary" style="width:auto; padding:10px 16px; font-size:14px;" onclick="exportHerunterladen()">Export</button>
-          <button class="btn btn-danger"  style="width:auto; padding:10px 16px; font-size:14px;" onclick="exportDaten()">📧 Gmail</button>
-        </div>
+        <button class="btn btn-primary" style="width:auto; padding:10px 16px; font-size:14px;" onclick="exportDaten()">Export</button>
       </div>
       <div class="einst-zeile">
         <div>
@@ -617,6 +658,28 @@ body {
       </div>
     </div>
 
+    <!-- SCHILDER AUSWAHL -->
+    <div class="karte" id="schilder-box" style="display:none;">
+      <div class="karte-titel">🏷️ Schilder drucken</div>
+      <div class="trennlinie"></div>
+      <div class="label-klein" style="margin-bottom:8px;">Lagerort wählen:</div>
+
+      <button onclick="druckeSchilder('AKQ-Regal', '100x32')" class="btn btn-primary" style="margin-bottom:8px;">
+        📦 AKQ-Regal – 100×32mm
+      </button>
+      <button onclick="druckeSchilder('ESA-Schrank', '100x32')" class="btn btn-primary" style="margin-bottom:8px;">
+        📦 ESA-Schrank – 100×32mm
+      </button>
+      <button onclick="druckeSchilder('ESA-Regal', '150x60')" class="btn btn-primary" style="margin-bottom:8px;">
+        📦 ESA-Regal – 150×60mm
+      </button>
+      <button onclick="druckeSchilder('Lager U2', '150x60')" class="btn btn-primary" style="margin-bottom:8px;">
+        📦 Lager U2 – 150×60mm
+      </button>
+      <button onclick="schilderSchliessen()" class="btn btn-ghost">✕ Schließen</button>
+    </div>
+  </div>
+
 </div><!-- /app -->
 
 <!-- BOTTOM NAV -->
@@ -650,33 +713,9 @@ body {
     <div class="qr-popup-name" id="qr-popup-name"></div>
     <div id="qr-popup-lagerort" style="font-size:12px; color:var(--muted); margin-top:4px;"></div>
     <div id="qr-popup-code"></div>
-    <div class="qr-hinweis">📸 Screenshot speichern</div>
+    <div class="qr-hinweis">📸 Screenshot oder direkt drucken</div>
+    <button class="btn btn-success" onclick="druckeEinzelnenQR()" style="margin-top:4px">🖨️ Schild drucken</button>
     <button class="btn btn-primary" onclick="schliesseQRPopup()" style="margin-top:4px">Schließen</button>
-  </div>
-</div>
-
-<!-- EXPORT DIALOG -->
-<div id="export-dialog" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:998; align-items:center; justify-content:center;">
-  <div style="background:white; border-radius:18px; padding:28px; width:90%; max-width:360px; display:flex; flex-direction:column; gap:16px;">
-    <div style="font-size:18px; font-weight:700; color:#1a1a2e;">📤 Daten exportieren</div>
-
-    <button onclick="exportHerunterladen()" style="width:100%; background:#2563eb; color:white; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; cursor:pointer;">
-      📥 Datei herunterladen
-    </button>
-
-    <div style="border-top:1px solid #eee; padding-top:16px;">
-      <div style="font-size:13px; color:#6b7280; margin-bottom:8px;">📧 Per Gmail senden</div>
-      <input type="email" id="export-email-input"
-        placeholder="E-Mail Adresse eingeben"
-        style="width:100%; padding:12px; border:2px solid #e2e4e9; border-radius:10px; font-size:15px; margin-bottom:10px; font-family:Arial;">
-      <button onclick="exportPerGmail()" style="width:100%; background:#e63946; color:white; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:700; cursor:pointer;">
-        📧 Per Gmail senden
-      </button>
-    </div>
-
-    <button onclick="exportSchliessen()" style="width:100%; background:#f4f5f7; color:#6b7280; border:none; border-radius:12px; padding:12px; font-size:15px; font-weight:600; cursor:pointer;">
-      ✕ Abbrechen
-    </button>
   </div>
 </div>
 
@@ -831,25 +870,25 @@ function bauPruefung() {
       <!-- MELDEBESTAND (veränderbar) -->
       <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
         <span style="font-size:12px; color:var(--muted); width:100px;">Meldebestand:</span>
-        <button onclick="statusWertAendern('melde','${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#e63946;color:white;font-size:14px;font-weight:700;cursor:pointer;">−</button>
+        <button onclick="statusWertAendern('melde','${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--warn-bg);color:var(--warn);font-size:14px;font-weight:700;cursor:pointer;">−</button>
         <span id="status-melde-${a.nr}" style="font-size:15px;font-weight:700;font-family:var(--mono);min-width:30px;text-align:center;">${g.melde}</span>
-        <button onclick="statusWertAendern('melde','${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#2d6a4f;color:white;font-size:14px;font-weight:700;cursor:pointer;">+</button>
+        <button onclick="statusWertAendern('melde','${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--ok-bg);color:var(--ok);font-size:14px;font-weight:700;cursor:pointer;">+</button>
       </div>
 
       <!-- MINDESTBESTAND (veränderbar) -->
       <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
         <span style="font-size:12px; color:var(--muted); width:100px;">Mindestbestand:</span>
-        <button onclick="statusWertAendern('mindest','${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#e63946;color:white;font-size:14px;font-weight:700;cursor:pointer;">−</button>
+        <button onclick="statusWertAendern('mindest','${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--warn-bg);color:var(--warn);font-size:14px;font-weight:700;cursor:pointer;">−</button>
         <span id="status-mindest-${a.nr}" style="font-size:15px;font-weight:700;font-family:var(--mono);min-width:30px;text-align:center;">${g.mindest}</span>
-        <button onclick="statusWertAendern('mindest','${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#2d6a4f;color:white;font-size:14px;font-weight:700;cursor:pointer;">+</button>
+        <button onclick="statusWertAendern('mindest','${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--ok-bg);color:var(--ok);font-size:14px;font-weight:700;cursor:pointer;">+</button>
       </div>
 
       <!-- BESTELLMENGE (veränderbar) -->
       <div style="display:flex; align-items:center; gap:8px; margin-top:6px; padding-top:8px; border-top:1px solid #eee;">
         <span style="font-size:12px; color:var(--muted); width:100px;">Bestellmenge:</span>
-        <button onclick="bestellmengeAendern('${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#e63946;color:white;font-size:14px;font-weight:700;cursor:pointer;">−</button>
+        <button onclick="bestellmengeAendern('${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--warn-bg);color:var(--warn);font-size:14px;font-weight:700;cursor:pointer;">−</button>
         <span id="bestell-menge-${a.nr}" style="font-size:15px;font-weight:700;font-family:var(--mono);min-width:30px;text-align:center;">${ladeBestellmenge(a.nr)}</span>
-        <button onclick="bestellmengeAendern('${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#2d6a4f;color:white;font-size:14px;font-weight:700;cursor:pointer;">+</button>
+        <button onclick="bestellmengeAendern('${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--ok-bg);color:var(--ok);font-size:14px;font-weight:700;cursor:pointer;">+</button>
       </div>
     </div>`;
   }).join('');
@@ -1137,6 +1176,36 @@ function offlineQrEingabe(val) {
 
 let html5QrCode=null, aktArtikel=null, origMenge=0;
 
+function startScan() {
+  document.getElementById('btn-scan-start').style.display = 'none';
+  document.getElementById('btn-scan-stop').style.display  = 'flex';
+  document.getElementById('kamera-box').style.display     = 'block';
+  document.getElementById('scan-hinweis').style.display   = 'block';
+  document.getElementById('artikel-karte').style.display  = 'none';
+
+  html5QrCode = new Html5Qrcode('video');
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 15, qrbox: { width: 220, height: 220 }, showTorchButtonIfSupported: false, showZoomSliderIfSupported: false, defaultZoomValueIfSupported: 1, disableFlip: false, aspectRatio: 1.0 },
+    (decodedText) => { stopScan(); verarbeiteQR(decodedText); },
+    (error) => {}
+  ).catch(() => {
+    stopScan();
+    const nr = prompt('Kamera nicht verfügbar.\nArtikel-Nr. eingeben:');
+    if (nr) verarbeiteQR('NR:'+nr.trim()+'|ARTIKEL:test|LAGERORT:AKQ-Regal');
+  });
+}
+
+function stopScan() {
+  if (html5QrCode) {
+    html5QrCode.stop().then(()=>{ html5QrCode.clear(); html5QrCode=null; }).catch(()=>{});
+  }
+  document.getElementById('kamera-box').style.display     = 'none';
+  document.getElementById('scan-hinweis').style.display   = 'none';
+  document.getElementById('btn-scan-start').style.display = 'flex';
+  document.getElementById('btn-scan-stop').style.display  = 'none';
+}
+
 
 function verarbeiteQR(qrText) {
   const teile = {};
@@ -1236,8 +1305,6 @@ function speichern() {
     zeit:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})});
   LS.set('lager_verlauf', v.slice(0,30));
   toast('✅ Bestätigt!');
-  fbIgnoreNext = true;
-  fbSchreibeBestand(ladeBestand());
   aktualisierStats();
   bauVerlauf();
   setTimeout(() => karteSchliessen(), 800);
@@ -1255,6 +1322,163 @@ function bauVerlauf() {
       <div class="v-delta ${x.alt===x.neu?'gleich':''}">${x.alt} → ${x.neu}</div>
     </div>`).join('');
 }
+
+// ════════════════════════════════════════════════════════
+// BESTELLUNG DRUCKEN
+// ════════════════════════════════════════════════════════
+function bestellungDrucken() {
+  const b       = ladeBestand();
+  const artikel = ladeArtikel();
+
+  const bestellbar = artikel.filter(a => {
+    if (a.lagerort === 'Lager U2') return false;
+    const nr = parseInt(a.nr);
+    if (nr >= 22 && nr <= 25) return false;
+    const g   = getGrenzen(a.nr);
+    const ist = b[a.nr] !== undefined ? b[a.nr] : 0;
+    return ist <= g.melde;
+  });
+
+  if (!bestellbar.length) { toast('Keine Artikel zum Bestellen!', true); return; }
+
+  const akq = bestellbar.filter(a => parseInt(a.nr) >= 1  && parseInt(a.nr) <= 21);
+  const esa = bestellbar.filter(a => parseInt(a.nr) >= 26 && parseInt(a.nr) <= 44);
+
+  const datum   = new Date().toLocaleDateString('de-DE');
+  const uhrzeit = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+
+  const tabelleHtml = (liste) => liste.map(a => {
+    const ist = b[a.nr] !== undefined ? b[a.nr] : 0;
+    const g   = getGrenzen(a.nr);
+    const bm  = ladeBestellmenge(a.nr);
+    return `<tr>
+      <td>${a.nr}</td>
+      <td>${a.name}</td>
+      <td>${a.lagerort}</td>
+      <td style="text-align:center;">${ist}</td>
+      <td style="text-align:center;">${g.melde}</td>
+      <td style="text-align:center;">${g.mindest}</td>
+      <td style="text-align:center;" class="print-bestellen">${bm}</td>
+    </tr>`;
+  }).join('');
+
+  const tabelle = (liste, titel) => {
+    if (!liste.length) return '';
+    return `
+      <div class="print-section">${titel}</div>
+      <table class="print-tabelle">
+        <thead><tr>
+          <th>Nr.</th><th>Artikel</th><th>Lagerort</th>
+          <th>Bestand</th><th>Melde</th><th>Mindest</th>
+          <th style="color:#ffaaaa;">Bestellen</th>
+        </tr></thead>
+        <tbody>${tabelleHtml(liste)}</tbody>
+      </table>`;
+  };
+
+  document.getElementById('print-inhalt').innerHTML = `
+    <div style="position:fixed; top:10px; right:10px; z-index:1001;">
+      <button onclick="window.print()" style="background:#2d6a4f; color:white; border:none; border-radius:8px; padding:8px 16px; font-size:14px; font-weight:bold; cursor:pointer;">Drucken</button>
+    </div>
+    <div class="print-header">
+      <h1>📦 Lager Bestellung</h1>
+      <p>Datum: ${datum} · Uhrzeit: ${uhrzeit} · ${bestellbar.length} Positionen</p>
+    </div>
+    ${tabelle(akq, '📦 Liste AKQ')}
+    ${tabelle(esa, '📦 Liste ESA')}
+    <p style="font-size:11px; color:#aaa; margin-top:20px;">Erstellt: ${datum} · ${uhrzeit}</p>
+  `;
+
+  document.getElementById('print-bereich').style.display = 'block';
+  document.getElementById('print-status').textContent = '✅ Bestellung bereit';
+  document.getElementById('print-btn').style.display = 'block';
+}
+
+function schliesseDruck() {
+  document.getElementById('print-bereich').style.display = 'none';
+}
+
+// ════════════════════════════════════════════════════════
+// SCHILDER DRUCKEN
+// ════════════════════════════════════════════════════════
+function zeigeSchilder() {
+  const box = document.getElementById('schilder-box');
+  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+}
+
+function schilderSchliessen() {
+  document.getElementById('schilder-box').style.display = 'none';
+}
+
+function druckeSchilder(lagerort, groesse) {
+  const artikel = ladeArtikel().filter(a => a.lagerort === lagerort);
+  if (!artikel.length) { toast('Keine Artikel für ' + lagerort, true); return; }
+
+  const ist100x32 = groesse === '100x32';
+  const breite  = ist100x32 ? '100mm' : '150mm';
+  const hoehe   = ist100x32 ? '32mm'  : '60mm';
+  const qrSize  = ist100x32 ? 90 : 140;
+  const fontSize = ist100x32 ? '9pt' : '12pt';
+  const nrSize   = ist100x32 ? '7pt' : '10pt';
+
+  const schilder = artikel.map((a, i) => `
+    <div style="width:${breite}; height:${hoehe}; border:1.5px solid #222; border-radius:2mm;
+      display:flex; overflow:hidden; background:white; margin-bottom:4mm; page-break-inside:avoid;">
+      <div style="flex:1; padding:3mm; display:flex; flex-direction:column; justify-content:center; gap:1mm; border-right:1px solid #ddd;">
+        <div style="font-size:${nrSize}; color:#666; font-weight:bold;">Nr. ${a.nr}</div>
+        <div style="font-size:${fontSize}; font-weight:bold; color:#000; line-height:1.2;">${a.name}</div>
+      </div>
+      <div style="width:${hoehe}; min-width:${hoehe}; display:flex; align-items:center; justify-content:center; padding:2mm;" id="qr-schild-${i}"></div>
+    </div>`).join('');
+
+  document.getElementById('print-inhalt').innerHTML = `
+    <div style="font-family:Arial; padding:8mm;">
+      <div style="margin-bottom:10mm; border-bottom:2px solid #1a1a2e; padding-bottom:6px;">
+        <strong style="font-size:14pt;">🏷️ Schilder – ${lagerort}</strong>
+        <span style="font-size:10pt; color:#888; margin-left:10px;">${groesse}mm · ${artikel.length} Stück</span>
+      </div>
+      ${schilder}
+    </div>`;
+
+  document.getElementById('print-bereich').style.display = 'block';
+  document.getElementById('print-status').textContent = '⏳ QR-Codes laden… 0/' + artikel.length;
+  document.getElementById('print-btn').style.display = 'none';
+
+  // QR-Codes einzeln generieren
+  let qrIndex = 0;
+  const qrArtikel = artikel;
+  const qrSize2 = qrSize;
+
+  function ladeNaechstenQR() {
+    if (qrIndex >= qrArtikel.length) {
+      document.getElementById('print-status').textContent = '✅ ' + qrArtikel.length + ' Schilder bereit';
+      document.getElementById('print-btn').style.display = 'block';
+      return;
+    }
+    const a  = qrArtikel[qrIndex];
+    const el = document.getElementById('qr-schild-'+qrIndex);
+    if (el && el.childNodes.length === 0) {
+      try {
+        // Sonderzeichen ersetzen für QR-Code Kompatibilität
+        const qrText = ('NR:'+a.nr+'|ARTIKEL:'+a.name+'|LAGERORT:'+a.lagerort)
+          .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
+          .replace(/Ä/g,'Ae').replace(/Ö/g,'Oe').replace(/Ü/g,'Ue')
+          .replace(/ß/g,'ss');
+        new QRCode(el, {
+          text: qrText,
+          width: qrSize2, height: qrSize2,
+          colorDark: '#000000', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch(e) { console.log('QR Fehler:', e); }
+    }
+    qrIndex++;
+    document.getElementById('print-status').textContent = '⏳ QR-Codes laden… ' + qrIndex + '/' + qrArtikel.length;
+    setTimeout(ladeNaechstenQR, 120);
+  }
+  setTimeout(ladeNaechstenQR, 400);
+}
+
 
 function bestellungSenden() {
   const b       = ladeBestand();
@@ -1314,16 +1538,12 @@ function bestellungSenden() {
 
   const emailAdresse = LS.get('bestell_email', 'LagerApp400@gmail.com');
 
-  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  if (isMobile) {
-    window.location.href = 'mailto:' + emailAdresse + '?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(body);
-  } else {
-    const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1' +
-      '&to=' + encodeURIComponent(emailAdresse) +
-      '&su=' + encodeURIComponent(betreff) +
-      '&body=' + encodeURIComponent(body);
-    window.open(gmailUrl, '_blank');
-  }
+  const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1' +
+    '&to=' + encodeURIComponent(emailAdresse) +
+    '&su=' + encodeURIComponent(betreff) +
+    '&body=' + encodeURIComponent(body);
+
+  window.open(gmailUrl, '_blank');
   toast('✅ Gmail wird geöffnet!');
 }
 
@@ -1388,9 +1608,9 @@ function bauMeldeliste() {
         <div class="melde-wert">Ist: ${ist} · Melde: ${g.melde} · Mindest: ${g.mindest}</div>
         <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
           <span style="font-size:12px; color:#888;">Bestellen:</span>
-          <button onclick="bestellmengeAendern('${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#e63946;color:white;font-size:14px;font-weight:700;cursor:pointer;">−</button>
-          <span id="bestell-menge-${a.nr}" style="font-size:16px;font-weight:700;min-width:30px;text-align:center;">${bm}</span>
-          <button onclick="bestellmengeAendern('${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:#2d6a4f;color:white;font-size:14px;font-weight:700;cursor:pointer;">+</button>
+          <button onclick="bestellmengeAendern('${a.nr}',-1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--warn-bg);color:var(--warn);font-size:14px;font-weight:700;cursor:pointer;">−</button>
+          <span id="bestell-menge-b-${a.nr}" style="font-size:16px;font-weight:700;min-width:30px;text-align:center;">${bm}</span>
+          <button onclick="bestellmengeAendern('${a.nr}',+1)" style="width:26px;height:26px;border-radius:50%;border:none;background:var(--ok-bg);color:var(--ok);font-size:14px;font-weight:700;cursor:pointer;">+</button>
         </div>
       </div>
     </div>`;
@@ -1480,6 +1700,60 @@ function zeigeQRPopup(nr) {
   document.getElementById('qr-popup').classList.add('show');
 }
 
+function druckeEinzelnenQR() {
+  if (!aktuellerQRArtikel) return;
+  const a = aktuellerQRArtikel;
+
+  // Größe automatisch nach Lagerort
+  const ist100x32 = a.lagerort === 'AKQ-Regal' || a.lagerort === 'ESA-Schrank';
+  const breite  = ist100x32 ? '100mm' : '150mm';
+  const hoehe   = ist100x32 ? '32mm'  : '60mm';
+  const qrSize  = ist100x32 ? 90 : 140;
+  const fontSize = ist100x32 ? '9pt' : '12pt';
+  const nrSize   = ist100x32 ? '7pt' : '10pt';
+  const groesse  = ist100x32 ? '100×32mm' : '150×60mm';
+
+  const qrText = ('NR:'+a.nr+'|ARTIKEL:'+a.name+'|LAGERORT:'+a.lagerort)
+    .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
+    .replace(/Ä/g,'Ae').replace(/Ö/g,'Oe').replace(/Ü/g,'Ue')
+    .replace(/ß/g,'ss');
+
+  schliesseQRPopup();
+
+  document.getElementById('print-inhalt').innerHTML = `
+    <div style="font-family:Arial; padding:8mm;">
+      <div style="margin-bottom:8mm; border-bottom:2px solid #1a1a2e; padding-bottom:6px;">
+        <strong style="font-size:14pt;">🏷️ Neues Schild – ${a.lagerort}</strong>
+        <span style="font-size:10pt; color:#888; margin-left:10px;">${groesse}</span>
+      </div>
+      <div style="width:${breite}; height:${hoehe}; border:1.5px solid #222; border-radius:2mm;
+        display:flex; overflow:hidden; background:white;">
+        <div style="flex:1; padding:3mm; display:flex; flex-direction:column; justify-content:center; gap:1mm; border-right:1px solid #ddd;">
+          <div style="font-size:${nrSize}; color:#666; font-weight:bold;">Nr. ${a.nr}</div>
+          <div style="font-size:${fontSize}; font-weight:bold; color:#000; line-height:1.2;">${a.name}</div>
+        </div>
+        <div style="width:${hoehe}; min-width:${hoehe}; display:flex; align-items:center; justify-content:center; padding:2mm;" id="qr-neu-schild"></div>
+      </div>
+    </div>`;
+
+  document.getElementById('print-bereich').style.display = 'block';
+  document.getElementById('print-status').textContent = '⏳ QR-Code wird geladen…';
+  document.getElementById('print-btn').style.display = 'none';
+
+  setTimeout(() => {
+    const el = document.getElementById('qr-neu-schild');
+    if (el) {
+      new QRCode(el, {
+        text: qrText, width: qrSize, height: qrSize,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+    document.getElementById('print-status').textContent = '✅ Schild bereit';
+    document.getElementById('print-btn').style.display = 'block';
+  }, 400);
+}
+
 function schliesseQRPopup() { document.getElementById('qr-popup').classList.remove('show'); }
 
 // ════════════════════════════════════════════════════════
@@ -1510,51 +1784,7 @@ function exportSharePoint() {
 }
 
 
-function exportHerunterladen() {
-  const data = {
-    version: '1.0',
-    datum:   new Date().toLocaleString('de-DE'),
-    artikel: ladeArtikel(),
-    bestand: ladeBestand(),
-    grenzen: ladeGrenzen(),
-  };
-  const text = JSON.stringify(data, null, 2);
-  const blob = new Blob([text], {type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = 'lager_export_'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('✅ Export heruntergeladen!');
-}
-
 function exportDaten() {
-  const bestand = ladeBestand();
-  const artikel = ladeArtikel();
-  const datum   = new Date().toLocaleDateString('de-DE');
-  const uhrzeit = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-
-  const body  = '📦';
-
-  const emailAdresse = LS.get('bestell_email', 'LagerApp400@gmail.com');
-  const betreff = 'Lager Export – ' + datum;
-
-  // Auf Handy mailto, auf PC Gmail URL
-  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  if (isMobile) {
-    window.location.href = 'mailto:' + emailAdresse + '?subject=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(body);
-  } else {
-    window.location.href = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(emailAdresse) + '&su=' + encodeURIComponent(betreff) + '&body=' + encodeURIComponent(body);
-  }
-  toast('✅ Gmail wird geöffnet!');
-}
-
-function exportSchliessen() {
-  document.getElementById('export-dialog').style.display = 'none';
-}
-
-function exportHerunterladen() {
   const data = {
     version: '1.0',
     datum:   new Date().toLocaleString('de-DE'),
@@ -1565,44 +1795,12 @@ function exportHerunterladen() {
   const text = JSON.stringify(data, null, 2);
   const blob = new Blob([text], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
+  const a = document.createElement('a');
   a.href = url;
   a.download = 'lager_export_'+new Date().toISOString().slice(0,10)+'.json';
   a.click();
   URL.revokeObjectURL(url);
-  exportSchliessen();
-  toast('✅ Export heruntergeladen!');
-}
-
-function exportPerGmail() {
-  const email = document.getElementById('export-email-input').value.trim();
-  if (!email) { toast('Bitte E-Mail Adresse eingeben!', true); return; }
-
-  const bestand = ladeBestand();
-  const artikel = ladeArtikel();
-  const datum   = new Date().toLocaleDateString('de-DE');
-  const uhrzeit = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-
-  let body = '📦 LAGER EXPORT\n';
-  body += 'Datum: ' + datum + ' · ' + uhrzeit + '\n\n';
-
-  body += '═══ BESTÄNDE ═══\n\n';
-  artikel.forEach(a => {
-    const ist = bestand[a.nr] !== undefined ? bestand[a.nr] : 0;
-    const g   = getGrenzen(a.nr);
-    body += '▸ Nr.' + a.nr + ' – ' + a.name + '\n';
-    body += '  Bestand: ' + ist + '  |  Melde: ' + g.melde + '  |  Mindest: ' + g.mindest + '\n\n';
-  });
-
-  const betreff = 'Lager Export – ' + datum + ' · ' + uhrzeit;
-  const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1' +
-    '&to=' + encodeURIComponent(email) +
-    '&su=' + encodeURIComponent(betreff) +
-    '&body=' + encodeURIComponent(body);
-
-  exportSchliessen();
-  window.location.href = gmailUrl;
-  toast('✅ Gmail wird geöffnet!');
+  toast('Export erfolgreich!');
 }
 
 function importDatei(input) {
@@ -1719,134 +1917,6 @@ if (!localStorage.getItem('lager_bestand')) {
 
 aktualisierStats();
 bauVerlauf();
-
-// ════════════════════════════════════════════════════════
-// FIREBASE SYNC
-// ════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyBs9kh274xOOAjyXhSvlXy-SXyi4xdZIZE",
-  authDomain: "lager-app-2.firebaseapp.com",
-  databaseURL: "https://lager-app-2-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "lager-app-2",
-  storageBucket: "lager-app-2.firebasestorage.app",
-  messagingSenderId: "711771197478",
-  appId: "1:711771197478:web:924d2306e93f4b3b4d56e7"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-// Sync-Status anzeigen
-function setSyncStatus(status) {
-  const el = document.getElementById('sync-status');
-  const tx = document.getElementById('sync-text');
-  if (!el || !tx) return;
-  el.className = 'sync-status ' + status;
-  tx.textContent = status === 'online' ? 'Sync ✓' : status === 'offline' ? 'Offline' : '…';
-}
-
-// Online/Offline erkennen
-db.ref('.info/connected').on('value', snap => {
-  setSyncStatus(snap.val() ? 'online' : 'offline');
-});
-
-// ── Bestand zu Firebase schreiben ──
-function fbSchreibeBestand(bestand) {
-  db.ref('lager/bestand').set(bestand).catch(e => console.log('FB Schreib-Fehler:', e));
-}
-
-// ── Artikel zu Firebase schreiben ──
-function fbSchreibeArtikel(artikel) {
-  db.ref('lager/artikel').set(artikel).catch(e => console.log('FB Schreib-Fehler:', e));
-}
-
-// ── Grenzen zu Firebase schreiben ──
-function fbSchreibeGrenzen(grenzen) {
-  db.ref('lager/grenzen').set(grenzen).catch(e => console.log('FB Schreib-Fehler:', e));
-}
-
-// ── Änderungen von Firebase empfangen (anderes Gerät) ──
-let fbIgnoreNext = false;
-db.ref('lager/bestand').on('value', snap => {
-  if (fbIgnoreNext) { fbIgnoreNext = false; return; }
-  const fbBestand = snap.val();
-  if (!fbBestand) return;
-  const lokal = ladeBestand();
-  // Nur überschreiben wenn Daten wirklich anders
-  if (JSON.stringify(fbBestand) !== JSON.stringify(lokal)) {
-    LS.set('lager_bestand', fbBestand);
-    aktualisierStats();
-    bauPruefung();
-    toast('🔄 Sync vom anderen Gerät!');
-  }
-});
-
-db.ref('lager/grenzen').on('value', snap => {
-  const fbGrenzen = snap.val();
-  if (!fbGrenzen) return;
-  const lokal = ladeGrenzen();
-  if (JSON.stringify(fbGrenzen) !== JSON.stringify(lokal)) {
-    LS.set('lager_grenzen', fbGrenzen);
-    aktualisierStats();
-  }
-});
-
-// ── Artikel-Änderungen von Firebase empfangen (anderes Gerät) ──
-let fbIgnoreNextArtikel = false;
-db.ref('lager/artikel').on('value', snap => {
-  if (fbIgnoreNextArtikel) { fbIgnoreNextArtikel = false; return; }
-  const fbArtikel = snap.val();
-  if (!fbArtikel) return;
-  const lokal = ladeArtikel();
-  if (JSON.stringify(fbArtikel) !== JSON.stringify(lokal)) {
-    LS.set('lager_artikel', fbArtikel);
-    aktualisierStats();
-    bauArtikelListe();
-    bauPruefung();
-    toast('🔄 Artikel-Sync vom anderen Gerät!');
-  }
-});
-
-
-// ── Original speichern-Funktionen mit Firebase erweitern ──
-const _origPruefSpeichern = pruefSpeichern;
-pruefSpeichern = function(nr) {
-  _origPruefSpeichern(nr);
-  fbIgnoreNext = true;
-  fbSchreibeBestand(ladeBestand());
-};
-
-// Grenzen speichern patchen
-const _origGrenzenSpeichern = grenzenSpeichern;
-if (typeof grenzenSpeichern === 'function') {
-  grenzenSpeichern = function(nr) {
-    _origGrenzenSpeichern(nr);
-    fbSchreibeGrenzen(ladeGrenzen());
-  };
-}
-
-// Artikel speichern patchen
-const _origSpeichereArtikel = speichereArtikel;
-speichereArtikel = function(a) {
-  _origSpeichereArtikel(a);
-  fbIgnoreNextArtikel = true;
-  fbSchreibeArtikel(a);
-};
-
-// Initialer Upload falls Firebase leer ist
-db.ref('lager/bestand').once('value', snap => {
-  if (!snap.val()) {
-    fbSchreibeBestand(ladeBestand());
-    fbSchreibeGrenzen(ladeGrenzen());
-  }
-});
-
-db.ref('lager/artikel').once('value', snap => {
-  if (!snap.val()) {
-    fbSchreibeArtikel(ladeArtikel());
-  }
-});
-
 </script>
 </body>
 </html>
