@@ -450,10 +450,12 @@ function wertAendern(typ, nr, delta) {
   if (typ==='bestand') {
     const b=ladeBestand(); b[nr]=Math.max(0,(b[nr]??0)+delta); LS.set('lager_bestand',b);
     const el=document.getElementById('e-b-'+nr); if(el) el.textContent=b[nr];
+    fbIgnore=true; fbSchreibeBestand(b);
   } else {
     const g=ladeGrenzen(); if(!g[nr]){const a=ladeArtikel().find(x=>x.nr===nr)||{}; g[nr]={melde:a.melde??10,mindest:a.mindest??30};}
     g[nr][typ]=Math.max(0,(g[nr][typ]??0)+delta); LS.set('lager_grenzen',g);
     const el=document.getElementById('e-'+(typ==='melde'?'m':'i')+'-'+nr); if(el) el.textContent=g[nr][typ];
+    fbSchreibeGrenzen(g);
   }
   const b=ladeBestand(); const g2=getGrenzen(nr); const ok=(b[nr]??0)>g2.melde;
   const badge=document.getElementById('e-s-'+nr);
