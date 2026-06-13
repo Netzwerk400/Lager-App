@@ -1164,9 +1164,11 @@ function startScan() {
     { fps: 15, qrbox: { width: 220, height: 220 }, showTorchButtonIfSupported: false, showZoomSliderIfSupported: false, defaultZoomValueIfSupported: 1, disableFlip: false, aspectRatio: 1.0 },
     (decodedText) => { stopScan().then(()=>verarbeiteQR(decodedText)); },
     (error) => {}
-  ).catch(() => {
+  ).catch((err) => {
     stopScan();
-    const nr = prompt('Kamera nicht verfügbar.\nArtikel-Nr. eingeben:');
+    console.log('Kamera-Fehler:', err);
+    toast('📷 Kamera-Fehler: '+(err && err.message ? err.message : err), true);
+    const nr = prompt('Kamera nicht verfügbar:\n'+err+'\n\nArtikel-Nr. eingeben:');
     if (nr) verarbeiteQR('NR:'+nr.trim()+'|ARTIKEL:test|LAGERORT:AKQ-Regal');
   });
 }
