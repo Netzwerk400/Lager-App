@@ -368,18 +368,8 @@ body {
   <!-- ══ SCREEN: SCAN ══ -->
   <div class="screen aktiv" id="screen-scan">
 
-    <!-- LIVE KAMERA SCANNER -->
-    <button class="btn btn-scan-start" id="btn-scan-start" onclick="startScan()">📷 Live-Scan starten</button>
-    <button class="btn btn-danger" id="btn-scan-stop" style="display:none" onclick="stopScan()">⏹ Scan stoppen</button>
-
-    <div id="kamera-box" style="display:none">
-      <div id="video"></div>
-      <div class="kamera-overlay"><div class="kamera-rahmen"></div></div>
-    </div>
-    <div class="scan-hinweis" id="scan-hinweis" style="display:none">QR-Code vor die Kamera halten…</div>
-
-    <!-- OFFLINE SCANNER (Fallback per Foto) -->
-    <button class="btn btn-ghost" onclick="startOfflineScan()" style="margin-top:10px">📸 Foto-Scan (Fallback)</button>
+    <!-- OFFLINE SCANNER -->
+    <button class="btn btn-scan-start" onclick="startOfflineScan()">📱 Artikel scannen</button>
     <input type="text" id="offline-qr-input" style="display:none; width:100%; padding:14px; border-radius:12px; border:2px solid #e5e7eb; font-size:16px; font-family:var(--font);" placeholder="Nummer eingeben …" oninput="offlineQrEingabe(this.value)">
 
     <!-- ARTIKEL KARTE -->
@@ -1146,46 +1136,6 @@ function offlineQrEingabe(val) {
 
 
 let html5QrCode=null, aktArtikel=null, origMenge=0;
-
-let scanWirdGestoppt = false;
-
-function startScan() {
-  if (html5QrCode) return; // bereits aktiv
-
-  document.getElementById('btn-scan-start').style.display = 'none';
-  document.getElementById('btn-scan-stop').style.display  = 'flex';
-  document.getElementById('kamera-box').style.display     = 'block';
-  document.getElementById('scan-hinweis').style.display   = 'block';
-  document.getElementById('artikel-karte').style.display  = 'none';
-
-  html5QrCode = new Html5Qrcode('video');
-  html5QrCode.start(
-    { facingMode: 'environment' },
-    { fps: 15, qrbox: { width: 220, height: 220 }, showTorchButtonIfSupported: false, showZoomSliderIfSupported: false, defaultZoomValueIfSupported: 1, disableFlip: false, aspectRatio: 1.0 },
-    (decodedText) => { stopScan().then(()=>verarbeiteQR(decodedText)); },
-    (error) => {}
-  ).catch((err) => {
-    stopScan();
-    console.log('Kamera-Fehler:', err);
-    toast('📷 Kamera-Fehler: '+(err && err.message ? err.message : err), true);
-    const nr = prompt('Kamera nicht verfügbar:\n'+err+'\n\nArtikel-Nr. eingeben:');
-    if (nr) verarbeiteQR('NR:'+nr.trim()+'|ARTIKEL:test|LAGERORT:AKQ-Regal');
-  });
-}
-
-function stopScan() {
-  document.getElementById('kamera-box').style.display     = 'none';
-  document.getElementById('scan-hinweis').style.display   = 'none';
-  document.getElementById('btn-scan-start').style.display = 'flex';
-  document.getElementById('btn-scan-stop').style.display  = 'none';
-
-  if (!html5QrCode) return Promise.resolve();
-
-  const inst = html5QrCode;
-  html5QrCode = null; // sofort freigeben, damit startScan() nicht blockiert
-
-  return inst.stop().then(()=>{ inst.clear(); }).catch(()=>{ try{inst.clear();}catch(e){} });
-}
 
 
 function verarbeiteQR(qrText) {
