@@ -887,7 +887,7 @@ function bestellmengeAendern(nr, delta) {
   const el = document.getElementById('bestell-menge-'+nr);
   if (el) el.textContent = neu;
   clearTimeout(_bestellFbTimer);
-  _bestellFbTimer = setTimeout(() => fbSchreibeBestellmengen(ladeBestellmengen()), 500);
+  _bestellFbTimer = setTimeout(() => { fbIgnoreBestellmengen = true; setTimeout(()=>{fbIgnoreBestellmengen=false;},3000); fbSchreibeBestellmengen(ladeBestellmengen()); }, 500);
 }
 
 function bestellmengeDirekt(nr, val) {
@@ -899,7 +899,7 @@ function bestellmengeDirekt(nr, val) {
   const el = document.getElementById('bestell-menge-'+nr);
   if (el) el.textContent = m;
   clearTimeout(_bestellFbTimer);
-  _bestellFbTimer = setTimeout(() => fbSchreibeBestellmengen(ladeBestellmengen()), 500);
+  _bestellFbTimer = setTimeout(() => { fbIgnoreBestellmengen = true; setTimeout(()=>{fbIgnoreBestellmengen=false;},3000); fbSchreibeBestellmengen(ladeBestellmengen()); }, 500);
 }
 
 
@@ -1265,7 +1265,7 @@ function speichern() {
     zeit:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})});
   LS.set('lager_verlauf', v.slice(0,30));
   toast('✅ Bestätigt!');
-  fbIgnoreNext = true;
+  fbIgnoreNext = true; setTimeout(()=>{fbIgnoreNext=false;},3000);
   fbSchreibeBestand(ladeBestand());
   aktualisierStats();
   bauVerlauf();
@@ -1843,7 +1843,7 @@ db.ref('lager/artikel').on('value', snap => {
 const _origPruefSpeichern = pruefSpeichern;
 pruefSpeichern = function(nr) {
   _origPruefSpeichern(nr);
-  fbIgnoreNext = true;
+  fbIgnoreNext = true; setTimeout(()=>{fbIgnoreNext=false;},3000);
   fbSchreibeBestand(ladeBestand());
 };
 
@@ -1860,7 +1860,7 @@ grenzeSpeichern = function(nr) {
 const _origSpeichereArtikel = speichereArtikel;
 speichereArtikel = function(a) {
   _origSpeichereArtikel(a);
-  fbIgnoreNextArtikel = true;
+  fbIgnoreNextArtikel = true; setTimeout(()=>{fbIgnoreNextArtikel=false;},3000);
   fbSchreibeArtikel(a);
 };
 
@@ -1884,12 +1884,10 @@ db.ref('lager/bestellmengen').on('value', snap => {
   if (fbIgnoreBestellmengen) { fbIgnoreBestellmengen = false; return; }
   const fbM = snap.val();
   if (!fbM) return;
-  if (JSON.stringify(fbM) !== JSON.stringify(ladeBestellmengen())) {
-    LS.set('lager_bestellmengen', fbM);
-    bauMeldeliste();
-    bauArtikelListe();
-    toast('🔄 Bestellmengen-Sync!');
-  }
+  LS.set('lager_bestellmengen', fbM);
+  bauMeldeliste();
+  bauArtikelListe();
+  bauPruefung();
 });
 
 db.ref('lager/bestellmengen').once('value', snap => {

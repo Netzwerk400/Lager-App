@@ -470,7 +470,7 @@ function wertAendern(typ, nr, delta) {
   if (typ==='bestand') {
     const b=ladeBestand(); b[nr]=Math.max(0,(b[nr]??0)+delta); LS.set('lager_bestand',b);
     const el=document.getElementById('e-b-'+nr); if(el) el.textContent=b[nr];
-    fbIgnore=true; fbSchreibeBestand(b);
+    fbIgnore=true; setTimeout(()=>{fbIgnore=false;},3000); fbSchreibeBestand(b);
   } else {
     const g=ladeGrenzen(); if(!g[nr]){const a=ladeArtikel().find(x=>x.nr===nr)||{}; g[nr]={melde:a.melde??10,mindest:a.mindest??30};}
     g[nr][typ]=Math.max(0,(g[nr][typ]??0)+delta); LS.set('lager_grenzen',g);
@@ -487,7 +487,11 @@ function wertAendern(typ, nr, delta) {
 let _bestellFbTimerPC = null;
 function _fbPushBestellmengen() {
   clearTimeout(_bestellFbTimerPC);
-  _bestellFbTimerPC = setTimeout(() => fbSchreibeBestellmengen(ladeBestellmengen()), 500);
+  _bestellFbTimerPC = setTimeout(() => {
+    fbIgnoreBestellmengen = true;
+    setTimeout(() => { fbIgnoreBestellmengen = false; }, 3000); // Auto-Reset
+    fbSchreibeBestellmengen(ladeBestellmengen());
+  }, 500);
 }
 
 function bestellmengeAendern(nr, delta) {
@@ -666,8 +670,8 @@ function importDaten(input) {
   reader.onload=e=>{
     try {
       const data=JSON.parse(e.target.result);
-      if(data.artikel) { LS.set('lager_artikel',data.artikel); fbIgnoreArtikel=true; fbSchreibeArtikel(data.artikel); }
-      if(data.bestand) { LS.set('lager_bestand',data.bestand); fbIgnore=true; fbSchreibeBestand(data.bestand); }
+      if(data.artikel) { LS.set('lager_artikel',data.artikel); fbIgnoreArtikel=true; setTimeout(()=>{fbIgnoreArtikel=false;},3000); fbSchreibeArtikel(data.artikel); }
+      if(data.bestand) { LS.set('lager_bestand',data.bestand); fbIgnore=true; setTimeout(()=>{fbIgnore=false;},3000); fbSchreibeBestand(data.bestand); }
       if(data.grenzen) { LS.set('lager_grenzen',data.grenzen); fbSchreibeGrenzen(data.grenzen); }
       aktualisierStats(); bauStatus(); bauEingabe();
       toast('✅ Import erfolgreich!');
@@ -680,8 +684,8 @@ function allesZuruecksetzen() {
   if(!confirm('ACHTUNG: Alle Daten zurücksetzen?')) return;
   LS.set('lager_artikel',[...STAMM]); LS.set('lager_bestand',{...ISTBESTAND});
   localStorage.removeItem('lager_grenzen');
-  fbIgnoreArtikel=true; fbSchreibeArtikel([...STAMM]);
-  fbIgnore=true; fbSchreibeBestand({...ISTBESTAND});
+  fbIgnoreArtikel=true; setTimeout(()=>{fbIgnoreArtikel=false;},3000); fbSchreibeArtikel([...STAMM]);
+  fbIgnore=true; setTimeout(()=>{fbIgnore=false;},3000); fbSchreibeBestand({...ISTBESTAND});
   aktualisierStats(); bauStatus(); bauEingabe();
   toast('✅ Zurückgesetzt!');
 }
@@ -707,7 +711,7 @@ function artikelHinzufuegen() {
   artikel.push({nr,name,lagerort:lager,melde,mindest});
   artikel.sort((a,b)=>parseInt(a.nr)-parseInt(b.nr));
   LS.set('lager_artikel',artikel);
-  fbIgnoreArtikel = true;
+  fbIgnoreArtikel = true; setTimeout(()=>{fbIgnoreArtikel=false;},3000);
   fbSchreibeArtikel(artikel);
   document.getElementById('neu-nr').value='';
   document.getElementById('neu-name').value='';
@@ -721,7 +725,7 @@ function artikelLoeschen(nr) {
   if(!confirm('Artikel Nr.'+nr+' wirklich löschen?')) return;
   const artikel = ladeArtikel().filter(a=>a.nr!==nr);
   LS.set('lager_artikel',artikel);
-  fbIgnoreArtikel = true;
+  fbIgnoreArtikel = true; setTimeout(()=>{fbIgnoreArtikel=false;},3000);
   fbSchreibeArtikel(artikel);
   bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
   toast('✅ Gelöscht!');
