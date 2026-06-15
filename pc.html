@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Lager App – PC</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #f4f5f7;
+  --surface: #ffffff;
+  --border:  #e2e4e9;
+  --text:    #1a1d23;
+  --muted:   #6b7280;
+  --accent:  #e63946;
+  --ok:      #16a34a;
+  --ok-bg:   #dcfce7;
+  --warn:    #dc2626;
+  --warn-bg: #fee2e2;
+  --blue:    #2563eb;
+  --sidebar: #1a1d23;
+  --font:    Arial, sans-serif;
+  --mono:    'Courier New', monospace;
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar { width: 220px; min-width: 220px; background: var(--sidebar); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
+.sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
+.sidebar-logo h1 { font-size: 17px; font-weight: 700; color: white; }
+.sidebar-logo p  { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 14px; font-weight: 600; border-left: 3px solid transparent; }
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+.nav-item.aktiv { background: rgba(255,255,255,0.1); color: white; border-left-color: var(--accent); }
+.nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; display: none; }
+.nav-badge.show { display: block; }
+.sidebar-bottom { margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.25); }
+
+/* MAIN */
+.main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.topbar-title { font-size: 18px; font-weight: 700; }
+.topbar-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.topbar-actions { display: flex; gap: 10px; }
+.content { padding: 28px 32px; }
+
+/* STATS */
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
+.stat-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 36px; font-weight: 700; font-family: var(--mono); margin-top: 6px; }
+.stat-card.ok   .stat-value { color: var(--ok); }
+.stat-card.warn .stat-value { color: var(--warn); }
+
+/* SCREEN */
+.screen { display: none; }
+.screen.aktiv { display: block; }
+
+/* TABELLE */
+.tbl-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.tbl-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.tbl-titel { font-size: 15px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+thead th { background: #f8f9fb; padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #fafafa; }
+tbody td { padding: 11px 14px; font-size: 14px; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font); }
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--blue);   color: white; }
+.btn-danger  { background: var(--accent); color: white; }
+.btn-success { background: var(--ok);     color: white; }
+.btn-ghost   { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+
+/* STATUS BADGE */
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge.ok   { background: var(--ok-bg);   color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+
+/* MENGE */
+.menge-wrap { display: flex; align-items: center; gap: 5px; }
+.mb { width: 26px; height: 26px; border-radius: 50%; border: none; font-size: 15px; font-weight: 700; cursor: pointer; }
+.mb.m { background: var(--warn-bg); color: var(--warn); }
+.mb.p { background: var(--ok-bg);   color: var(--ok); }
+.mz { font-family: var(--mono); font-weight: 700; min-width: 30px; text-align: center; }
+
+/* TABS */
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 9px; padding: 4px; margin-bottom: 18px; width: fit-content; }
+.tab-btn { padding: 7px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); font-family: var(--font); }
+.tab-btn.aktiv { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+/* IMPORT BOX */
+.import-box { background: var(--surface); border: 2px dashed var(--border); border-radius: 10px; padding: 40px; text-align: center; margin-bottom: 20px; cursor: pointer; }
+.import-box:hover { border-color: var(--blue); }
+
+/* TOAST */
+#toast { position: fixed; bottom: 24px; right: 24px; background: #1a1d23; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 999; }
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.fehler { background: var(--accent); }
+
+/* PRINT */
+@media print {
+  .sidebar, .topbar, .no-print, #print-toolbar { display: none !important; }
+  .main { margin-left: 0; }
+  #print-bereich { display: block !important; position: static !important; overflow: visible !important; }
+  .screen { display: none !important; }
+  @page { margin: 5mm; size: A4; }
+}
+
+  #print-bereich {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 999;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    overflow-y: auto;
+  }
+
+  .print-header { border-bottom: 3px solid #1a1a2e; padding-bottom: 12px; margin-bottom: 20px; }
+  .print-header h1 { font-size: 20px; color: #1a1a2e; margin: 0; }
+  .print-header p  { font-size: 12px; color: #666; margin: 4px 0 0; }
+
+  .print-section { background: #f0f0f0; padding: 8px 12px; font-weight: bold; font-size: 13px; margin: 16px 0 6px; border-left: 4px solid #1a1a2e; }
+
+  .print-tabelle { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+  .print-tabelle th { background: #1a1a2e; color: white; padding: 7px 8px; text-align: left; }
+  .print-tabelle td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+  .print-tabelle tr:nth-child(even) td { background: #f9f9f9; }
+  .print-bestellen { color: #e63946; font-weight: bold; font-size: 14px; }
+
+
+#print-content-inner { padding: 20px; padding-top: 10px; }
+.pt { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+.pt th { background: #1a1d23; color: white; padding: 7px 10px; text-align: left; }
+.pt td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+.pt tr:nth-child(even) td { background: #f9f9f9; }
+.pt-red { color: #e63946; font-weight: bold; }
+.pt-sec { background: #f0f0f0; padding: 7px 12px; font-weight: bold; font-size: 13px; margin: 14px 0 6px; border-left: 4px solid #1a1d23; }
+.ph { border-bottom: 3px solid #1a1d23; padding-bottom: 10px; margin-bottom: 18px; }
+.ph h1 { font-size: 19px; color: #1a1d23; }
+.ph p  { font-size: 12px; color: #666; margin-top: 3px; }
+</style>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script>
+var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();
+</script>
+</head>
+<body>
+
+<!-- PRINT BEREICH -->
+<div id="print-bereich">
+  <div id="print-toolbar" style="position:fixed; top:0; left:0; right:0; height:50px; background:#1a1a2e; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:1001;">
+    <button onclick="schliesseDruck()" style="background:#e63946; color:white; border:none; border-radius:8px; padding:8px 18px; font-size:14px; font-weight:bold; cursor:pointer;">✕ Schließen</button>
+    <div id="print-status" style="color:rgba(255,255,255,0.6); font-size:13px;">⏳ Wird vorbereitet…</div>
+    <button id="print-btn" onclick="window.print()" style="display:none; background:#2d6a4f; color:white; border:none; border-radius:8px; padding:8px 18px; font-size:14px; font-weight:bold; cursor:pointer;">🖨️ Drucken</button>
+  </div>
+  <div id="print-inhalt" style="padding-top:60px;"></div>
+</div>
+
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>📦 Lager App</h1>
+    <p>PC Version</p>
+  </div>
+  <div class="nav-item aktiv" onclick="zeigeScreen('status')"   id="nav-status">  <span>📋</span> Status</div>
+  <div class="nav-item"       onclick="zeigeScreen('eingabe')"  id="nav-eingabe">  <span>✏️</span> Bestand ändern</div>
+  <div class="nav-item"       onclick="zeigeScreen('bestellen')"id="nav-bestellen"><span>🛒</span> Bestellen <span class="nav-badge" id="nav-badge">0</span></div>
+  <div class="nav-item"       onclick="zeigeScreen('artikel')"  id="nav-artikel">  <span>⚙️</span> Artikel</div>
+  <div class="nav-item"       onclick="zeigeScreen('sync')"     id="nav-sync">     <span>🔄</span> Sync</div>
+  <div class="nav-item"       onclick="zeigeScreen('mehr')"     id="nav-mehr">     <span>☰</span> Mehr</div>
+  <div class="sidebar-bottom">
+    <div id="pc-sync-status" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11px;">
+      <span id="pc-sync-dot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block;"></span>
+      <span id="pc-sync-text">…</span>
+    </div>
+    Lager App v1.0
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Statusübersicht</div>
+      <div class="topbar-sub"   id="topbar-sub">Alle Artikel – nur lesen</div>
+    </div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+
+  <div class="content">
+
+    <!-- STATUS -->
+    <div class="screen aktiv" id="screen-status">
+      <div class="stats-row">
+        <div class="stat-card">      <div class="stat-label">Gesamt</div>   <div class="stat-value" id="stat-total">0</div></div>
+        <div class="stat-card ok">   <div class="stat-label">OK</div>        <div class="stat-value" id="stat-ok">0</div></div>
+        <div class="stat-card warn"> <div class="stat-label">Bestellen</div> <div class="stat-value" id="stat-warn">0</div></div>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">Alle Artikel</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Meldebestand</th><th>Mindestbestand</th><th>Status</th></tr></thead>
+        <tbody id="status-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- BESTAND ÄNDERN -->
+    <div class="screen" id="screen-eingabe">
+      <div style="text-align:center; margin-bottom:16px;">
+        <button onclick="aktualisieren()" title="Ansicht aktualisieren" style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer; color:var(--text);">🔄 Aktualisieren</button>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">Alle Artikel – Werte veränderbar</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Meldebestand</th><th>Mindestbestand</th><th>Bestellmenge</th><th>Status</th></tr></thead>
+        <tbody id="eingabe-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- BESTELLEN -->
+    <div class="screen" id="screen-bestellen">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div class="tabs">
+          <button class="tab-btn aktiv" id="tab-akq" onclick="zeigeBestellTab('akq')">📦 Liste AKQ</button>
+          <button class="tab-btn"       id="tab-esa" onclick="zeigeBestellTab('esa')">📦 Liste ESA</button>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost no-print"  onclick="bestellungDrucken('akq')">🖨️ AKQ</button>
+          <button class="btn btn-ghost no-print"  onclick="bestellungDrucken('esa')">🖨️ ESA</button>
+          <button class="btn btn-danger no-print" onclick="bestellungSenden('akq')">📧 AKQ</button>
+          <button class="btn btn-danger no-print" onclick="bestellungSenden('esa')">📧 ESA</button>
+        </div>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel" id="bestell-titel">Nachzubestellen</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Meldebestand</th><th>Bestellmenge</th></tr></thead>
+        <tbody id="bestell-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- SYNC -->
+    <div class="screen" id="screen-sync">
+      <div class="import-box" onclick="document.getElementById('import-file').click()">
+        <div style="font-size:40px;margin-bottom:10px;">📥</div>
+        <div style="font-size:15px;font-weight:600;">Daten von der Handy-App importieren</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px;">JSON Export Datei hier ablegen oder klicken</div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importDaten(this)">
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">📤 Exportieren</div></div>
+        <div style="padding:20px;display:flex;gap:12px;">
+          <button class="btn btn-primary" onclick="exportDaten()">📤 JSON Export</button>
+          <button class="btn btn-ghost"   onclick="exportSharePoint()">📋 SharePoint</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARTIKEL -->
+    <div class="screen" id="screen-artikel">
+      <div style="display:flex;gap:12px;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <input type="number" id="neu-nr"    placeholder="Nr."        style="width:80px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;" min="1">
+        <input type="text"   id="neu-name"  placeholder="Artikelname" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+        <select id="neu-lager" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font);">
+          <option>AKQ-Regal</option>
+          <option>ESA-Schrank</option>
+          <option>ESA-Regal</option>
+          <option>Lager U2</option>
+        </select>
+        <input type="number" id="neu-melde"  placeholder="Melde"   style="width:90px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;" min="0">
+        <input type="number" id="neu-mindest"placeholder="Mindest" style="width:90px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;" min="0">
+        <button class="btn btn-success" onclick="artikelHinzufuegen()">+ Hinzufügen</button>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">Alle Artikel</div></div>
+        <table><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Meldebestand</th><th>Mindestbestand</th><th>Aktion</th></tr></thead>
+        <tbody id="artikel-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- MEHR -->
+    <div class="screen" id="screen-mehr">
+      <div class="tbl-box" style="margin-bottom:18px;">
+        <div class="tbl-header"><div class="tbl-titel">🖨️ Schilder drucken</div></div>
+        <div style="padding:20px;display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="druckeSchilder('AKQ-Regal','100x32')">📦 AKQ-Regal – 100×32mm</button>
+          <button class="btn btn-primary" onclick="druckeSchilder('ESA-Schrank','100x32')">📦 ESA-Schrank – 100×32mm</button>
+          <button class="btn btn-primary" onclick="druckeSchilder('ESA-Regal','150x60')">📦 ESA-Regal – 150×60mm</button>
+          <button class="btn btn-primary" onclick="druckeSchilder('Lager U2','150x60')">📦 Lager U2 – 150×60mm</button>
+        </div>
+      </div>
+      <div class="tbl-box">
+        <div class="tbl-header"><div class="tbl-titel">⚙️ Einstellungen</div></div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="flex:1;"><div style="font-weight:600;font-size:14px;">E-Mail für Bestellungen</div><div style="font-size:12px;color:var(--muted);">Wird für Gmail verwendet</div></div>
+            <input type="email" id="email-setting" placeholder="bestellung@firma.de" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;width:260px;" onchange="LS.set('bestell_email',this.value)">
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="flex:1;"><div style="font-weight:600;font-size:14px;color:var(--warn);">Alle Daten zurücksetzen</div></div>
+            <button class="btn btn-ghost" style="border-color:var(--warn);color:var(--warn);" onclick="allesZuruecksetzen()">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>$QRCODE
+</script>
+<script>
+const STAMM = [
+  {nr:'1',  name:'HDMI 1,5 m',                     lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:14},
+  {nr:'2',  name:'HDMI 2,0 m',                     lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:15},
+  {nr:'3',  name:'HDMI 3,0 m',                     lagerort:'AKQ-Regal',   melde:2,  mindest:10, spId:55},
+  {nr:'4',  name:'HDMI 5,0 m',                     lagerort:'AKQ-Regal',   melde:2,  mindest:10, spId:51},
+  {nr:'5',  name:'Display Port 5,0 m',             lagerort:'AKQ-Regal',   melde:2,  mindest:10, spId:52},
+  {nr:'6',  name:'Display Port 2,0 m',             lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:16},
+  {nr:'7',  name:'Display Port / HDMI 2,0 m',      lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:17},
+  {nr:'8',  name:'USB A 3.0 / USB B Powered 3.0',  lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:21},
+  {nr:'9',  name:'mini DP / Display Port 2m',      lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:7},
+  {nr:'10', name:'mini DP / mini Display Port',    lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:48},
+  {nr:'11', name:'USB A / USB C',                  lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:3},
+  {nr:'12', name:'USB C / USB C',                  lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:4},
+  {nr:'13', name:'USB A Verlängerung',             lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:20},
+  {nr:'14', name:'USB 2.0 / HDMI',                 lagerort:'AKQ-Regal',   melde:3,  mindest:10, spId:11},
+  {nr:'15', name:'USB C / HDMI',                   lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:5},
+  {nr:'16', name:'USB C / Display Port',           lagerort:'AKQ-Regal',   melde:3,  mindest:10, spId:6},
+  {nr:'17', name:'USB C Lightning 1,0 m',          lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:10},
+  {nr:'18', name:'mini DP / DVI + mini DP / HDMI', lagerort:'AKQ-Regal',   melde:5,  mindest:15, spId:9},
+  {nr:'19', name:'mini DP / VGA',                  lagerort:'AKQ-Regal',   melde:3,  mindest:10, spId:8},
+  {nr:'20', name:'Druckerkabel USB A / USB B',     lagerort:'AKQ-Regal',   melde:0,  mindest:10, spId:22},
+  {nr:'21', name:'Kaltgeräte-Stecker',             lagerort:'AKQ-Regal',   melde:10, mindest:30, spId:18},
+  {nr:'22', name:'Micky Maus Stecker / Kabel',     lagerort:'Lager U2',    melde:10, mindest:30, spId:19},
+  {nr:'23', name:'Mehrfachsteckdose klein',         lagerort:'Lager U2',    melde:5,  mindest:15, spId:23},
+  {nr:'24', name:'Mehrfachsteckdose groß',          lagerort:'Lager U2',    melde:5,  mindest:15, spId:24},
+  {nr:'25', name:'Audio Klinke 3,5 mm',            lagerort:'Lager U2',    melde:5,  mindest:15, spId:13},
+  {nr:'26', name:'LAN Kabel 0,5 m',                lagerort:'ESA-Regal',   melde:10, mindest:30, spId:25},
+  {nr:'27', name:'LAN Kabel 1,0 m',                lagerort:'ESA-Regal',   melde:10, mindest:30, spId:26},
+  {nr:'28', name:'LAN Kabel 1,5 m',                lagerort:'ESA-Regal',   melde:15, mindest:30, spId:27},
+  {nr:'29', name:'LAN Kabel 2,0 m',                lagerort:'ESA-Regal',   melde:15, mindest:30, spId:28},
+  {nr:'30', name:'LAN Kabel 3,0 m',                lagerort:'ESA-Regal',   melde:15, mindest:30, spId:29},
+  {nr:'31', name:'LAN Kabel 5,0 m',                lagerort:'ESA-Regal',   melde:10, mindest:30, spId:30},
+  {nr:'33', name:'LAN Kabel 7,5 m',                lagerort:'ESA-Regal',   melde:5,  mindest:15, spId:32},
+  {nr:'34', name:'LAN Kabel 10,0 m',               lagerort:'ESA-Regal',   melde:5,  mindest:15, spId:33},
+  {nr:'35', name:'LAN Kabel 15,0 m',               lagerort:'ESA-Regal',   melde:5,  mindest:15, spId:34},
+  {nr:'36', name:'Maus',                           lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:36},
+  {nr:'37', name:'Tastatur',                       lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:37},
+  {nr:'38', name:'Maus + Tastatur',                lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:38},
+  {nr:'39', name:'ESA USB C / USB C 2m',           lagerort:'ESA-Schrank',  melde:10, mindest:30, spId:39},
+  {nr:'40', name:'USB C 4 Kabel 2m',               lagerort:'ESA-Schrank',  melde:0,  mindest:10, spId:40},
+  {nr:'41', name:'DVD Laufwerke',                  lagerort:'ESA-Schrank',  melde:2,  mindest:10, spId:41},
+  {nr:'42', name:'Stift',                          lagerort:'ESA-Schrank',  melde:5,  mindest:15, spId:42},
+  {nr:'43', name:'USB Adapter / LAN',              lagerort:'ESA-Schrank',  melde:5,  mindest:15, spId:43},
+  {nr:'44', name:'Lenovo Tasche',                  lagerort:'ESA-Regal',   melde:10, mindest:30, spId:50},
+  {nr:'45', name:'AKQ LAN Kabel 2,0 m',           lagerort:'Lager U2',    melde:10, mindest:30, spId:56},
+  {nr:'46', name:'AKQ LAN Kabel 3,0 m',           lagerort:'Lager U2',    melde:10, mindest:30, spId:57},
+  {nr:'47', name:'AKQ LAN Kabel 5,0 m',           lagerort:'Lager U2',    melde:10, mindest:30, spId:58},
+  {nr:'48', name:'Display Port 3,0 m',             lagerort:'Lager U2',    melde:10, mindest:30, spId:59},
+];
+
+const ISTBESTAND = {'1':13,'2':6,'3':3,'4':1,'5':4,'6':11,'7':3,'8':10,'9':8,'10':10,'11':8,'12':10,'13':10,'14':2,'15':4,'16':3,'17':2,'18':1,'19':1,'20':10,'21':11,'22':10,'23':8,'24':5,'25':16,'26':27,'27':23,'28':18,'29':19,'30':4,'31':27,'33':44,'34':18,'35':16,'36':30,'37':38,'38':31,'39':4,'40':15,'41':7,'42':34,'43':17,'44':28,'45':0,'46':0,'47':0,'48':0};
+
+const LS = {
+  get: (k,d) => { try { const v=localStorage.getItem(k); return v!==null?JSON.parse(v):d; } catch{return d;} },
+  set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} }
+};
+
+const ladeArtikel  = () => LS.get('lager_artikel', [...STAMM]);
+const ladeBestand  = () => LS.get('lager_bestand', {...ISTBESTAND});
+const ladeGrenzen  = () => LS.get('lager_grenzen', {});
+
+function getGrenzen(nr) {
+  const g=ladeGrenzen(); const s=ladeArtikel().find(a=>a.nr===nr)||{};
+  return { melde:(g[nr]?.melde??s.melde??10), mindest:(g[nr]?.mindest??s.mindest??30) };
+}
+
+function ladeBestellmengen() { return LS.get('lager_bestellmengen',{}); }
+function ladeBestellmenge(nr) { const m=ladeBestellmengen(); return m[nr]!==undefined?m[nr]:30; }
+
+// NAVIGATION
+const SCREENS = {
+  status:    ['Statusübersicht',    'Alle Artikel – nur lesen'],
+  eingabe:   ['Bestand ändern',     'Alle Werte direkt veränderbar'],
+  bestellen: ['Bestelllisten',      'AKQ + ESA'],
+  artikel:   ['Artikelverwaltung',  'Artikel hinzufügen / löschen'],
+  sync:      ['Sync',               'Import / Export'],
+  mehr:      ['Mehr',               'Schilder drucken + Einstellungen'],
+};
+
+function zeigeScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('aktiv'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('aktiv'));
+  document.getElementById('screen-'+name).classList.add('aktiv');
+  document.getElementById('nav-'+name).classList.add('aktiv');
+  document.getElementById('topbar-title').textContent = SCREENS[name][0];
+  document.getElementById('topbar-sub').textContent   = SCREENS[name][1];
+  if (name==='status')    bauStatus();
+  if (name==='eingabe')   bauEingabe();
+  if (name==='bestellen') zeigeBestellTab(aktTab);
+  if (name==='artikel')   bauArtikelListe();
+  if (name==='mehr') { document.getElementById('email-setting').value=LS.get('bestell_email','LagerApp400@gmail.com'); }
+}
+
+// STATS
+function aktualisieren() {
+  aktualisierStats();
+  bauStatus();
+  bauEingabe();
+  bauArtikelListe();
+  if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+  toast('🔄 Aktualisiert!');
+}
+
+function aktualisierStats() {
+  const artikel=ladeArtikel(); const bestand=ladeBestand();
+  const warnAll = artikel.filter(a=>(bestand[a.nr]??0)<=getGrenzen(a.nr).melde);
+  const warnBest = warnAll.filter(a=>a.lagerort!=='Lager U2'&&!(parseInt(a.nr)>=22&&parseInt(a.nr)<=25));
+  document.getElementById('stat-total').textContent = artikel.length;
+  document.getElementById('stat-ok').textContent    = artikel.length-warnAll.length;
+  document.getElementById('stat-warn').textContent  = warnBest.length;
+  const badge=document.getElementById('nav-badge');
+  badge.textContent=warnBest.length; badge.classList.toggle('show',warnBest.length>0);
+}
+
+// STATUS
+function bauStatus() {
+  const bestand=ladeBestand(); const artikel=ladeArtikel();
+  document.getElementById('status-tbody').innerHTML = artikel.map(a=>{
+    const g=getGrenzen(a.nr); const ist=bestand[a.nr]??0; const ok=ist>g.melde;
+    return `<tr><td style="font-family:var(--mono)">${a.nr}</td><td style="font-weight:500">${a.name}</td><td style="color:var(--muted)">${a.lagerort}</td><td style="font-family:var(--mono);font-weight:700">${ist}</td><td style="font-family:var(--mono);color:var(--accent)">${g.melde}</td><td style="font-family:var(--mono);color:var(--blue)">${g.mindest}</td><td><span class="badge ${ok?'ok':'warn'}">${ok?'✅ OK':'⚠️ Bestellen'}</span></td></tr>`;
+  }).join('');
+}
+
+// EINGABE
+function bauEingabe() {
+  const bestand=ladeBestand(); const artikel=ladeArtikel();
+  document.getElementById('eingabe-tbody').innerHTML = artikel.map(a=>{
+    const g=getGrenzen(a.nr); const ist=bestand[a.nr]??0; const bm=ladeBestellmenge(a.nr); const ok=ist>g.melde;
+    return `<tr>
+      <td style="font-family:var(--mono)">${a.nr}</td>
+      <td style="font-weight:500">${a.name}</td>
+      <td style="color:var(--muted);font-size:12px">${a.lagerort}</td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="wertAendern('bestand','${a.nr}',-1)">−</button><span class="mz" id="e-b-${a.nr}">${ist}</span><button class="mb p" onclick="wertAendern('bestand','${a.nr}',+1)">+</button></div></td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="wertAendern('melde','${a.nr}',-1)">−</button><span class="mz" style="color:var(--accent)" id="e-m-${a.nr}">${g.melde}</span><button class="mb p" onclick="wertAendern('melde','${a.nr}',+1)">+</button></div></td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="wertAendern('mindest','${a.nr}',-1)">−</button><span class="mz" style="color:var(--blue)" id="e-i-${a.nr}">${g.mindest}</span><button class="mb p" onclick="wertAendern('mindest','${a.nr}',+1)">+</button></div></td>
+      <td><div class="menge-wrap"><button class="mb m" onclick="bestellmengeAendern('${a.nr}',-1)">−</button><span class="mz" id="bm-${a.nr}">${bm}</span><button class="mb p" onclick="bestellmengeAendern('${a.nr}',+1)">+</button></div></td>
+      <td><span class="badge ${ok?'ok':'warn'}" id="e-s-${a.nr}">${ok?'✅ OK':'⚠️ Bestellen'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function wertAendern(typ, nr, delta) {
+  if (typ==='bestand') {
+    const b=ladeBestand(); b[nr]=Math.max(0,(b[nr]??0)+delta); LS.set('lager_bestand',b);
+    const el=document.getElementById('e-b-'+nr); if(el) el.textContent=b[nr];
+    fbIgnore=true; fbSchreibeBestand(b);
+  } else {
+    const g=ladeGrenzen(); if(!g[nr]){const a=ladeArtikel().find(x=>x.nr===nr)||{}; g[nr]={melde:a.melde??10,mindest:a.mindest??30};}
+    g[nr][typ]=Math.max(0,(g[nr][typ]??0)+delta); LS.set('lager_grenzen',g);
+    const el=document.getElementById('e-'+(typ==='melde'?'m':'i')+'-'+nr); if(el) el.textContent=g[nr][typ];
+    fbSchreibeGrenzen(g);
+  }
+  const b=ladeBestand(); const g2=getGrenzen(nr); const ok=(b[nr]??0)>g2.melde;
+  const badge=document.getElementById('e-s-'+nr);
+  if(badge){badge.className='badge '+(ok?'ok':'warn'); badge.textContent=ok?'✅ OK':'⚠️ Bestellen';}
+  aktualisierStats(); bauStatus();
+  if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+}
+
+function bestellmengeAendern(nr, delta) {
+  const m=ladeBestellmengen(); m[nr]=Math.max(0,ladeBestellmenge(nr)+delta); LS.set('lager_bestellmengen',m);
+  const el=document.getElementById('bm-'+nr); if(el) el.textContent=m[nr];
+}
+
+// BESTELLLISTEN
+let aktTab='akq';
+function zeigeBestellTab(tab) {
+  aktTab=tab;
+  document.getElementById('tab-akq').classList.toggle('aktiv',tab==='akq');
+  document.getElementById('tab-esa').classList.toggle('aktiv',tab==='esa');
+  const b=ladeBestand(); const artikel=ladeArtikel();
+  const liste=artikel.filter(a=>{
+    if(a.lagerort==='Lager U2') return false;
+    const nr=parseInt(a.nr); if(nr>=22&&nr<=25) return false;
+    if((b[a.nr]??0)>getGrenzen(a.nr).melde) return false;
+    return tab==='akq'?(nr>=1&&nr<=21):(nr>=26&&nr<=44);
+  });
+  document.getElementById('bestell-titel').textContent=(tab==='akq'?'Liste AKQ':'Liste ESA')+' – '+liste.length+' Artikel';
+  const tbody=document.getElementById('bestell-tbody');
+  if(!liste.length){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted)">😊 Kein Artikel unter Meldebestand</td></tr>`;return;}
+  tbody.innerHTML=liste.map(a=>{
+    const ist=b[a.nr]??0; const g=getGrenzen(a.nr); const bm=ladeBestellmenge(a.nr);
+    return `<tr><td style="font-family:var(--mono)">${a.nr}</td><td style="font-weight:500">${a.name}</td><td style="color:var(--muted)">${a.lagerort}</td><td style="font-family:var(--mono);color:var(--warn);font-weight:700">${ist}</td><td style="font-family:var(--mono)">${g.melde}</td><td><div class="menge-wrap"><button class="mb m" onclick="bestellmengeAendern2('${a.nr}',-1)">−</button><span class="mz" id="bm2-${a.nr}">${bm}</span><button class="mb p" onclick="bestellmengeAendern2('${a.nr}',+1)">+</button></div></td></tr>`;
+  }).join('');
+}
+
+function bestellmengeAendern2(nr, delta) {
+  const m=ladeBestellmengen(); m[nr]=Math.max(0,ladeBestellmenge(nr)+delta); LS.set('lager_bestellmengen',m);
+  const el=document.getElementById('bm2-'+nr); if(el) el.textContent=m[nr];
+  const el2=document.getElementById('bm-'+nr);  if(el2) el2.textContent=m[nr];
+}
+
+// GMAIL
+function bestellungSenden(liste) {
+  const b=ladeBestand(); const artikel=ladeArtikel();
+  const bestellbar=artikel.filter(a=>{
+    if(a.lagerort==='Lager U2') return false;
+    const nr=parseInt(a.nr); if(nr>=22&&nr<=25) return false;
+    return (b[a.nr]??0)<=getGrenzen(a.nr).melde;
+  });
+  const gefiltert=bestellbar.filter(a=>{
+    const nr=parseInt(a.nr);
+    return liste==='akq' ? (nr>=1&&nr<=21) : (nr>=26&&nr<=44);
+  });
+  if(!gefiltert.length){toast('Keine Artikel zum Bestellen in Liste '+liste.toUpperCase()+'!',true);return;}
+  const d=new Date().toLocaleDateString('de-DE');
+  const u=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  let body='📦 LAGER BESTELLUNG – LISTE '+liste.toUpperCase()+'\nDatum: '+d+' · '+u+'\n\n';
+  body+='═══ LISTE '+liste.toUpperCase()+' ═══\n\n';
+  gefiltert.forEach(a=>{const ist=b[a.nr]??0;body+='▸ Nr.'+a.nr+' – '+a.name+'\n  Bestand: '+ist+'  |  Melde: '+getGrenzen(a.nr).melde+'  |  Bestellen: '+ladeBestellmenge(a.nr)+'\n\n';});
+  const email=LS.get('bestell_email','LagerApp400@gmail.com');
+  window.location.href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email)+'&su='+encodeURIComponent('Lager Bestellung '+liste.toUpperCase()+' – '+d)+'&body='+encodeURIComponent(body);
+  toast('✅ Gmail wird geöffnet!');
+}
+
+// DRUCKEN
+function bestellungDrucken(liste) {
+  const b=ladeBestand(); const artikel=ladeArtikel();
+  const bestellbar=artikel.filter(a=>{if(a.lagerort==='Lager U2')return false;const nr=parseInt(a.nr);if(nr>=22&&nr<=25)return false;return(b[a.nr]??0)<=getGrenzen(a.nr).melde;});
+  const gefiltert=bestellbar.filter(a=>{
+    const nr=parseInt(a.nr);
+    return liste==='akq' ? (nr>=1&&nr<=21) : (nr>=26&&nr<=44);
+  });
+  if(!gefiltert.length){toast('Keine Artikel zum Drucken in Liste '+liste.toUpperCase()+'!',true);return;}
+  const d=new Date().toLocaleDateString('de-DE'); const u=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const rows=l=>l.map(a=>`<tr><td>${a.nr}</td><td>${a.name}</td><td>${a.lagerort}</td><td style="text-align:center">${b[a.nr]??0}</td><td style="text-align:center">${getGrenzen(a.nr).melde}</td><td style="text-align:center" class="pt-red">${ladeBestellmenge(a.nr)}</td></tr>`).join('');
+  const titel = liste==='akq' ? '📦 Liste AKQ' : '📦 Liste ESA';
+  const tbl=`<div class="pt-sec">${titel}</div><table class="pt"><thead><tr><th>Nr.</th><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Melde</th><th style="color:#ffaaaa">Bestellen</th></tr></thead><tbody>${rows(gefiltert)}</tbody></table>`;
+  document.getElementById('print-inhalt').innerHTML=`<div style="position:fixed;top:10px;right:10px;z-index:1001"><button onclick="window.print()" style="background:#2d6a4f;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:bold;cursor:pointer">🖨️ Drucken</button></div><div class="ph"><h1>📦 Lager Bestellung – Liste ${liste.toUpperCase()}</h1><p>Datum: ${d} · ${u} · ${gefiltert.length} Positionen</p></div>${tbl}<p style="font-size:11px;color:#aaa;margin-top:18px">Erstellt: ${d} · ${u}</p>`;
+  document.getElementById('print-bereich').style.display='block';
+  document.getElementById('print-status').textContent='✅ Bereit';
+  document.getElementById('print-btn').style.display='block';
+}
+
+function schliesseDruck() {
+  document.getElementById('print-bereich').style.display='none';
+  document.getElementById('print-btn').style.display='none';
+}
+
+function druckeSchilder(lagerort, groesse) {
+  const artikel = ladeArtikel().filter(a => a.lagerort === lagerort);
+  if (!artikel.length) { toast('Keine Artikel für ' + lagerort, true); return; }
+
+  const ist100x32 = groesse === '100x32';
+  const breite  = ist100x32 ? '100mm' : '150mm';
+  const hoehe   = ist100x32 ? '32mm'  : '60mm';
+  const qrSize  = ist100x32 ? 90 : 140;
+  const fontSize = ist100x32 ? '9pt' : '12pt';
+  const nrSize   = ist100x32 ? '7pt' : '10pt';
+
+  const schilder = artikel.map((a, i) => `
+    <div style="width:${breite}; height:${hoehe}; border:1.5px solid #222; border-radius:2mm;
+      display:flex; overflow:hidden; background:white; margin-bottom:4mm; page-break-inside:avoid;">
+      <div style="flex:1; padding:3mm; display:flex; flex-direction:column; justify-content:center; gap:1mm; border-right:1px solid #ddd;">
+        <div style="font-size:${nrSize}; color:#666; font-weight:bold;">Nr. ${a.nr}</div>
+        <div style="font-size:${fontSize}; font-weight:bold; color:#000; line-height:1.2;">${a.name}</div>
+      </div>
+      <div style="width:${hoehe}; min-width:${hoehe}; display:flex; align-items:center; justify-content:center; padding:2mm;" id="qr-schild-${i}"></div>
+    </div>`).join('');
+
+  document.getElementById('print-inhalt').innerHTML = `
+    <div style="font-family:Arial; padding:8mm;">
+      <div style="margin-bottom:10mm; border-bottom:2px solid #1a1a2e; padding-bottom:6px;">
+        <strong style="font-size:14pt;">🏷️ Schilder – ${lagerort}</strong>
+        <span style="font-size:10pt; color:#888; margin-left:10px;">${groesse}mm · ${artikel.length} Stück</span>
+      </div>
+      ${schilder}
+    </div>`;
+
+  document.getElementById('print-bereich').style.display = 'block';
+  document.getElementById('print-status').textContent = '⏳ QR-Codes laden… 0/' + artikel.length;
+  document.getElementById('print-btn').style.display = 'none';
+
+  // QR-Codes einzeln generieren
+  let qrIndex = 0;
+  const qrArtikel = artikel;
+  const qrSize2 = qrSize;
+
+  function ladeNaechstenQR() {
+    if (qrIndex >= qrArtikel.length) {
+      document.getElementById('print-status').textContent = '✅ ' + qrArtikel.length + ' Schilder bereit';
+      document.getElementById('print-btn').style.display = 'block';
+      return;
+    }
+    const a  = qrArtikel[qrIndex];
+    const el = document.getElementById('qr-schild-'+qrIndex);
+    if (el && el.childNodes.length === 0) {
+      try {
+        // Sonderzeichen ersetzen für QR-Code Kompatibilität
+        const qrText = ('NR:'+a.nr+'|ARTIKEL:'+a.name+'|LAGERORT:'+a.lagerort)
+          .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
+          .replace(/Ä/g,'Ae').replace(/Ö/g,'Oe').replace(/Ü/g,'Ue')
+          .replace(/ß/g,'ss');
+        new QRCode(el, {
+          text: qrText,
+          width: qrSize2, height: qrSize2,
+          colorDark: '#000000', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch(e) { console.log('QR Fehler:', e); }
+    }
+    qrIndex++;
+    document.getElementById('print-status').textContent = '⏳ QR-Codes laden… ' + qrIndex + '/' + qrArtikel.length;
+    setTimeout(ladeNaechstenQR, 120);
+  }
+  setTimeout(ladeNaechstenQR, 400);
+}
+
+// EXPORT / IMPORT
+function exportDaten() {
+  const data={version:'1.0',datum:new Date().toLocaleString('de-DE'),artikel:ladeArtikel(),bestand:ladeBestand(),grenzen:ladeGrenzen()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='lager_export_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
+  toast('✅ Export fertig!');
+}
+
+function exportSharePoint() {
+  const artikel=ladeArtikel(); const bestand=ladeBestand();
+  let csv='ID\tNr.\tTitel\tIstbestand\tMeldebestand\tLagerort\n';
+  artikel.forEach(a=>{const ist=bestand[a.nr]??0; const g=getGrenzen(a.nr); csv+=(a.spId||'')+'\t'+a.nr+'\t'+a.name+'\t'+ist+'\t'+g.melde+'\t'+a.lagerort+'\n';});
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/tab-separated-values;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const el=document.createElement('a');
+  el.href=url; el.download='lager_sharepoint_'+new Date().toISOString().slice(0,10)+'.tsv'; el.click(); URL.revokeObjectURL(url);
+  toast('✅ SharePoint Export fertig!');
+}
+
+function importDaten(input) {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const data=JSON.parse(e.target.result);
+      if(data.artikel) { LS.set('lager_artikel',data.artikel); fbIgnoreArtikel=true; fbSchreibeArtikel(data.artikel); }
+      if(data.bestand) { LS.set('lager_bestand',data.bestand); fbIgnore=true; fbSchreibeBestand(data.bestand); }
+      if(data.grenzen) { LS.set('lager_grenzen',data.grenzen); fbSchreibeGrenzen(data.grenzen); }
+      aktualisierStats(); bauStatus(); bauEingabe();
+      toast('✅ Import erfolgreich!');
+    } catch{toast('❌ Ungültige Datei!',true);}
+  };
+  reader.readAsText(file);
+}
+
+function allesZuruecksetzen() {
+  if(!confirm('ACHTUNG: Alle Daten zurücksetzen?')) return;
+  LS.set('lager_artikel',[...STAMM]); LS.set('lager_bestand',{...ISTBESTAND});
+  localStorage.removeItem('lager_grenzen');
+  fbIgnoreArtikel=true; fbSchreibeArtikel([...STAMM]);
+  fbIgnore=true; fbSchreibeBestand({...ISTBESTAND});
+  aktualisierStats(); bauStatus(); bauEingabe();
+  toast('✅ Zurückgesetzt!');
+}
+
+// ARTIKEL
+function bauArtikelListe() {
+  const artikel=ladeArtikel();
+  document.getElementById('artikel-tbody').innerHTML = artikel.map(a=>{
+    const g=getGrenzen(a.nr);
+    return `<tr><td style="font-family:var(--mono)">${a.nr}</td><td style="font-weight:500">${a.name}</td><td style="color:var(--muted)">${a.lagerort}</td><td style="font-family:var(--mono)">${g.melde}</td><td style="font-family:var(--mono)">${g.mindest}</td><td><button class="btn btn-ghost" style="border-color:var(--warn);color:var(--warn);padding:5px 12px;font-size:12px;" onclick="artikelLoeschen('${a.nr}')">🗑️ Löschen</button></td></tr>`;
+  }).join('');
+}
+
+function artikelHinzufuegen() {
+  const nr=document.getElementById('neu-nr').value.trim();
+  const name=document.getElementById('neu-name').value.trim();
+  const lager=document.getElementById('neu-lager').value;
+  const melde=parseInt(document.getElementById('neu-melde').value)||0;
+  const mindest=parseInt(document.getElementById('neu-mindest').value)||0;
+  if(!nr||!name){toast('Nr. und Name pflicht!',true);return;}
+  const artikel=ladeArtikel();
+  if(artikel.find(a=>a.nr===nr)){toast('Nr. '+nr+' existiert bereits!',true);return;}
+  artikel.push({nr,name,lagerort:lager,melde,mindest});
+  artikel.sort((a,b)=>parseInt(a.nr)-parseInt(b.nr));
+  LS.set('lager_artikel',artikel);
+  fbIgnoreArtikel = true;
+  fbSchreibeArtikel(artikel);
+  document.getElementById('neu-nr').value='';
+  document.getElementById('neu-name').value='';
+  document.getElementById('neu-melde').value='';
+  document.getElementById('neu-mindest').value='';
+  bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
+  toast('✅ Artikel Nr.'+nr+' hinzugefügt!');
+}
+
+function artikelLoeschen(nr) {
+  if(!confirm('Artikel Nr.'+nr+' wirklich löschen?')) return;
+  const artikel = ladeArtikel().filter(a=>a.nr!==nr);
+  LS.set('lager_artikel',artikel);
+  fbIgnoreArtikel = true;
+  fbSchreibeArtikel(artikel);
+  bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
+  toast('✅ Gelöscht!');
+}
+
+// SCHILDER
+
+
+
+// TOAST
+let tt=null;
+function toast(msg,fehler=false){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(fehler?' fehler':'');clearTimeout(tt);tt=setTimeout(()=>t.className='',2800);}
+
+// START
+if(!localStorage.getItem('lager_artikel')) LS.set('lager_artikel',[...STAMM]);
+if(!localStorage.getItem('lager_bestand')) LS.set('lager_bestand',{...ISTBESTAND});
+document.getElementById('email-setting').value=LS.get('bestell_email','LagerApp400@gmail.com');
+aktualisierStats();
+bauStatus();
+bauEingabe();
+
+// ════════════════════════════════════════════════════════
+// FIREBASE SYNC
+// ════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyD_WTE5YWc9D4NwCeNYfdmx35IFUHxwq-w",
+  authDomain: "lager-app-2.firebaseapp.com",
+  databaseURL: "https://lager-app-2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "lager-app-2",
+  storageBucket: "lager-app-2.firebasestorage.app",
+  messagingSenderId: "711771197478",
+  appId: "1:711771197478:web:924d2306e93f4b3b4d56e7"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function setPcSyncStatus(online) {
+  const dot  = document.getElementById('pc-sync-dot');
+  const text = document.getElementById('pc-sync-text');
+  if (!dot || !text) return;
+  dot.style.background  = online ? '#6ee7b7' : '#fca5a5';
+  text.style.color      = online ? '#6ee7b7' : '#fca5a5';
+  text.textContent      = online ? 'Sync ✓' : 'Offline';
+}
+
+db.ref('.info/connected').on('value', snap => {
+  setPcSyncStatus(!!snap.val());
+});
+
+function fbSchreibeBestand(b) {
+  db.ref('lager/bestand').set(b).catch(e => console.log('FB Fehler:', e));
+}
+function fbSchreibeGrenzen(g) {
+  db.ref('lager/grenzen').set(g).catch(e => console.log('FB Fehler:', e));
+}
+function fbSchreibeArtikel(a) {
+  db.ref('lager/artikel').set(a).catch(e => console.log('FB Fehler:', e));
+}
+
+// Änderungen vom Handy empfangen
+let fbIgnore = false;
+db.ref('lager/bestand').on('value', snap => {
+  if (fbIgnore) { fbIgnore = false; return; }
+  const fbB = snap.val();
+  if (!fbB) return;
+  if (JSON.stringify(fbB) !== JSON.stringify(ladeBestand())) {
+    LS.set('lager_bestand', fbB);
+    aktualisierStats(); bauStatus(); bauEingabe();
+    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+    toast('🔄 Sync vom Handy!');
+  }
+});
+
+db.ref('lager/grenzen').on('value', snap => {
+  const fbG = snap.val();
+  if (!fbG) return;
+  if (JSON.stringify(fbG) !== JSON.stringify(ladeGrenzen())) {
+    LS.set('lager_grenzen', fbG);
+    aktualisierStats(); bauStatus(); bauEingabe();
+    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+  }
+});
+
+// Artikel-Änderungen vom Handy empfangen
+let fbIgnoreArtikel = false;
+db.ref('lager/artikel').on('value', snap => {
+  if (fbIgnoreArtikel) { fbIgnoreArtikel = false; return; }
+  const fbA = snap.val();
+  if (!fbA) return;
+  if (JSON.stringify(fbA) !== JSON.stringify(ladeArtikel())) {
+    LS.set('lager_artikel', fbA);
+    bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
+    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+    toast('🔄 Artikel-Sync vom Handy!');
+  }
+});
+
+// Initialer Upload falls Firebase leer
+db.ref('lager/bestand').once('value', snap => {
+  if (!snap.val()) {
+    fbSchreibeBestand(ladeBestand());
+    fbSchreibeGrenzen(ladeGrenzen());
+  }
+});
+
+db.ref('lager/artikel').once('value', snap => {
+  if (!snap.val()) {
+    fbSchreibeArtikel(ladeArtikel());
+  }
+});
+</script>
+</body>
+</html>
+
+
