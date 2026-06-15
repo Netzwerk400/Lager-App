@@ -232,11 +232,17 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
           <button class="tab-btn aktiv" id="tab-akq" onclick="zeigeBestellTab('akq')">📦 Liste AKQ</button>
           <button class="tab-btn"       id="tab-esa" onclick="zeigeBestellTab('esa')">📦 Liste ESA</button>
         </div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost no-print"  onclick="bestellungDrucken('akq')">🖨️ AKQ</button>
-          <button class="btn btn-ghost no-print"  onclick="bestellungDrucken('esa')">🖨️ ESA</button>
-          <button class="btn btn-danger no-print" onclick="bestellungSenden('akq')">📧 AKQ</button>
-          <button class="btn btn-danger no-print" onclick="bestellungSenden('esa')">📧 ESA</button>
+        <div style="display:flex;gap:14px;align-items:center;">
+          <div style="display:flex;gap:8px;padding-right:14px;border-right:1px solid var(--border);">
+            <span style="align-self:center;font-size:12px;font-weight:600;color:var(--muted);">AKQ:</span>
+            <button class="btn btn-ghost no-print"  onclick="bestellungDrucken('akq')">🖨️ Drucken</button>
+            <button class="btn btn-danger no-print" onclick="bestellungSenden('akq')">📧 Mail</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <span style="align-self:center;font-size:12px;font-weight:600;color:var(--muted);">ESA:</span>
+            <button class="btn btn-ghost no-print"  onclick="bestellungDrucken('esa')">🖨️ Drucken</button>
+            <button class="btn btn-danger no-print" onclick="bestellungSenden('esa')">📧 Mail</button>
+          </div>
         </div>
       </div>
       <div class="tbl-box">
@@ -478,9 +484,16 @@ function wertAendern(typ, nr, delta) {
   if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
 }
 
+let _bestellFbTimerPC = null;
+function _fbPushBestellmengen() {
+  clearTimeout(_bestellFbTimerPC);
+  _bestellFbTimerPC = setTimeout(() => fbSchreibeBestellmengen(ladeBestellmengen()), 500);
+}
+
 function bestellmengeAendern(nr, delta) {
   const m=ladeBestellmengen(); m[nr]=Math.max(0,ladeBestellmenge(nr)+delta); LS.set('lager_bestellmengen',m);
   const el=document.getElementById('bm-'+nr); if(el) el.textContent=m[nr];
+  _fbPushBestellmengen();
 }
 
 // BESTELLLISTEN
@@ -509,6 +522,7 @@ function bestellmengeAendern2(nr, delta) {
   const m=ladeBestellmengen(); m[nr]=Math.max(0,ladeBestellmenge(nr)+delta); LS.set('lager_bestellmengen',m);
   const el=document.getElementById('bm2-'+nr); if(el) el.textContent=m[nr];
   const el2=document.getElementById('bm-'+nr);  if(el2) el2.textContent=m[nr];
+  _fbPushBestellmengen();
 }
 
 // GMAIL
@@ -764,9 +778,14 @@ function fbSchreibeBestand(b) {
 function fbSchreibeGrenzen(g) {
   db.ref('lager/grenzen').set(g).catch(e => console.log('FB Fehler:', e));
 }
+function fbSchreibeBestellmengen(m) {
+  db.ref('lager/bestellmengen').set(m).catch(e => console.log('FB Fehler:', e));
+}
 function fbSchreibeArtikel(a) {
   db.ref('lager/artikel').set(a).catch(e => console.log('FB Fehler:', e));
 }
+
+
 
 // Änderungen vom Handy empfangen
 let fbIgnore = false;
@@ -818,6 +837,24 @@ db.ref('lager/artikel').once('value', snap => {
   if (!snap.val()) {
     fbSchreibeArtikel(ladeArtikel());
   }
+});
+
+// Bestellmengen-Sync
+let fbIgnoreBestellmengen = false;
+db.ref('lager/bestellmengen').on('value', snap => {
+  if (fbIgnoreBestellmengen) { fbIgnoreBestellmengen = false; return; }
+  const fbM = snap.val();
+  if (!fbM) return;
+  if (JSON.stringify(fbM) !== JSON.stringify(ladeBestellmengen())) {
+    LS.set('lager_bestellmengen', fbM);
+    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+    bauEingabe();
+    toast('🔄 Bestellmengen-Sync!');
+  }
+});
+
+db.ref('lager/bestellmengen').once('value', snap => {
+  if (!snap.val()) fbSchreibeBestellmengen(ladeBestellmengen());
 });
 </script>
 </body>

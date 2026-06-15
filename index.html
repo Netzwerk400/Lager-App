@@ -886,6 +886,8 @@ function bestellmengeAendern(nr, delta) {
   LS.set('lager_bestellmengen', mengen);
   const el = document.getElementById('bestell-menge-'+nr);
   if (el) el.textContent = neu;
+  clearTimeout(_bestellFbTimer);
+  _bestellFbTimer = setTimeout(() => fbSchreibeBestellmengen(ladeBestellmengen()), 500);
 }
 
 function bestellmengeDirekt(nr, val) {
@@ -896,6 +898,8 @@ function bestellmengeDirekt(nr, val) {
   LS.set('lager_bestellmengen', mengen);
   const el = document.getElementById('bestell-menge-'+nr);
   if (el) el.textContent = m;
+  clearTimeout(_bestellFbTimer);
+  _bestellFbTimer = setTimeout(() => fbSchreibeBestellmengen(ladeBestellmengen()), 500);
 }
 
 
@@ -1770,6 +1774,11 @@ function fbSchreibeBestand(bestand) {
 function fbSchreibeArtikel(artikel) {
   db.ref('lager/artikel').set(artikel).catch(e => console.log('FB Schreib-Fehler:', e));
 }
+function fbSchreibeBestellmengen(mengen) {
+  db.ref('lager/bestellmengen').set(mengen).catch(e => console.log('FB Schreib-Fehler:', e));
+}
+
+let _bestellFbTimer = null;
 
 // ── Grenzen zu Firebase schreiben ──
 function fbSchreibeGrenzen(grenzen) {
@@ -1867,6 +1876,24 @@ db.ref('lager/artikel').once('value', snap => {
   if (!snap.val()) {
     fbSchreibeArtikel(ladeArtikel());
   }
+});
+
+// Bestellmengen-Sync
+let fbIgnoreBestellmengen = false;
+db.ref('lager/bestellmengen').on('value', snap => {
+  if (fbIgnoreBestellmengen) { fbIgnoreBestellmengen = false; return; }
+  const fbM = snap.val();
+  if (!fbM) return;
+  if (JSON.stringify(fbM) !== JSON.stringify(ladeBestellmengen())) {
+    LS.set('lager_bestellmengen', fbM);
+    bauMeldeliste();
+    bauArtikelListe();
+    toast('🔄 Bestellmengen-Sync!');
+  }
+});
+
+db.ref('lager/bestellmengen').once('value', snap => {
+  if (!snap.val()) fbSchreibeBestellmengen(ladeBestellmengen());
 });
 
 </script>
