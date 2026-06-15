@@ -887,7 +887,7 @@ function bestellmengeAendern(nr, delta) {
   const el = document.getElementById('bestell-menge-'+nr);
   if (el) el.textContent = neu;
   clearTimeout(_bestellFbTimer);
-  _bestellFbTimer = setTimeout(() => { fbIgnoreBestellmengen = true; setTimeout(()=>{fbIgnoreBestellmengen=false;},3000); fbSchreibeBestellmengen(ladeBestellmengen()); }, 500);
+  _bestellFbTimer = setTimeout(() => { fbSchreibeBestellmengen(ladeBestellmengen()); }, 500);
 }
 
 function bestellmengeDirekt(nr, val) {
@@ -899,7 +899,7 @@ function bestellmengeDirekt(nr, val) {
   const el = document.getElementById('bestell-menge-'+nr);
   if (el) el.textContent = m;
   clearTimeout(_bestellFbTimer);
-  _bestellFbTimer = setTimeout(() => { fbIgnoreBestellmengen = true; setTimeout(()=>{fbIgnoreBestellmengen=false;},3000); fbSchreibeBestellmengen(ladeBestellmengen()); }, 500);
+  _bestellFbTimer = setTimeout(() => { fbSchreibeBestellmengen(ladeBestellmengen()); }, 500);
 }
 
 
@@ -1265,7 +1265,6 @@ function speichern() {
     zeit:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})});
   LS.set('lager_verlauf', v.slice(0,30));
   toast('✅ Bestätigt!');
-  fbIgnoreNext = true; setTimeout(()=>{fbIgnoreNext=false;},3000);
   fbSchreibeBestand(ladeBestand());
   aktualisierStats();
   bauVerlauf();
@@ -1765,89 +1764,76 @@ db.ref('.info/connected').on('value', snap => {
   setSyncStatus(snap.val() ? 'online' : 'offline');
 });
 
-// ── Bestand zu Firebase schreiben ──
-function fbSchreibeBestand(bestand) {
-  db.ref('lager/bestand').set(bestand).catch(e => console.log('FB Schreib-Fehler:', e));
+// ── Geräte-ID (einmalig pro Session) ──
+const GERAET_ID = 'app_' + Math.random().toString(36).substr(2, 9);
+
+// ── Schreib-Funktionen mit Geräte-ID ──
+function fbSchreibe(pfad, daten) {
+  db.ref(pfad).set({ daten, von: GERAET_ID, ts: Date.now() })
+    .catch(e => console.log('FB Fehler:', e));
 }
 
-// ── Artikel zu Firebase schreiben ──
-function fbSchreibeArtikel(artikel) {
-  db.ref('lager/artikel').set(artikel).catch(e => console.log('FB Schreib-Fehler:', e));
-}
-function fbSchreibeBestellmengen(mengen) {
-  db.ref('lager/bestellmengen').set(mengen).catch(e => console.log('FB Schreib-Fehler:', e));
+function fbSchreibeBestand(b)      { fbSchreibe('lager/bestand', b); }
+function fbSchreibeGrenzen(g)      { fbSchreibe('lager/grenzen', g); }
+function fbSchreibeArtikel(a)      { fbSchreibe('lager/artikel', a); }
+function fbSchreibeBestellmengen(m){ fbSchreibe('lager/bestellmengen', m); }
+
+// ── Listener-Fabrik: ignoriert eigene Writes ──
+function fbLauschen(pfad, callback) {
+  db.ref(pfad).on('value', snap => {
+    const val = snap.val();
+    if (!val || !val.daten) return;
+    if (val.von === GERAET_ID) return; // eigener Write → ignorieren
+    callback(val.daten);
+  });
 }
 
-let _bestellFbTimer = null;
+// ── Listeners ──
+fbLauschen('lager/bestand', fbDaten => {
+  LS.set('lager_bestand', fbDaten);
+  aktualisierStats();
+  bauPruefung();
+  toast('🔄 Sync vom anderen Gerät!');
+});
 
-// ── Grenzen zu Firebase schreiben ──
-function fbSchreibeGrenzen(grenzen) {
-  db.ref('lager/grenzen').set(grenzen).catch(e => console.log('FB Schreib-Fehler:', e));
-}
-
-// ── Änderungen von Firebase empfangen (anderes Gerät) ──
-let fbIgnoreNext = false;
-db.ref('lager/bestand').on('value', snap => {
-  if (fbIgnoreNext) { fbIgnoreNext = false; return; }
-  const fbBestand = snap.val();
-  if (!fbBestand) return;
-  const lokal = ladeBestand();
-  // Nur überschreiben wenn Daten wirklich anders
-  if (JSON.stringify(fbBestand) !== JSON.stringify(lokal)) {
-    LS.set('lager_bestand', fbBestand);
-    aktualisierStats();
-    bauPruefung();
-    toast('🔄 Sync vom anderen Gerät!');
+fbLauschen('lager/grenzen', fbDaten => {
+  LS.set('lager_grenzen', fbDaten);
+  aktualisierStats();
+  bauPruefung();
+  bauMeldeliste();
+  bauArtikelListe();
+  if (aktArtikel) {
+    const g = getGrenzen(aktArtikel.nr);
+    const me = document.getElementById('input-melde');
+    const mi = document.getElementById('input-mindest');
+    if (me) me.value = g.melde;
+    if (mi) mi.value = g.mindest;
+    aktualisiereStatus(parseInt(document.getElementById('menge-anzeige').textContent));
   }
 });
 
-db.ref('lager/grenzen').on('value', snap => {
-  const fbGrenzen = snap.val();
-  if (!fbGrenzen) return;
-  const lokal = ladeGrenzen();
-  if (JSON.stringify(fbGrenzen) !== JSON.stringify(lokal)) {
-    LS.set('lager_grenzen', fbGrenzen);
-    aktualisierStats();
-    bauPruefung();
-    bauMeldeliste();
-    bauArtikelListe();
-    if (aktArtikel) {
-      const g = getGrenzen(aktArtikel.nr);
-      const me = document.getElementById('input-melde');
-      const mi = document.getElementById('input-mindest');
-      if (me) me.value = g.melde;
-      if (mi) mi.value = g.mindest;
-      aktualisiereStatus(parseInt(document.getElementById('menge-anzeige').textContent));
-    }
-  }
+fbLauschen('lager/artikel', fbDaten => {
+  LS.set('lager_artikel', fbDaten);
+  aktualisierStats();
+  bauArtikelListe();
+  bauPruefung();
+  toast('🔄 Artikel-Sync vom anderen Gerät!');
 });
 
-// ── Artikel-Änderungen von Firebase empfangen (anderes Gerät) ──
-let fbIgnoreNextArtikel = false;
-db.ref('lager/artikel').on('value', snap => {
-  if (fbIgnoreNextArtikel) { fbIgnoreNextArtikel = false; return; }
-  const fbArtikel = snap.val();
-  if (!fbArtikel) return;
-  const lokal = ladeArtikel();
-  if (JSON.stringify(fbArtikel) !== JSON.stringify(lokal)) {
-    LS.set('lager_artikel', fbArtikel);
-    aktualisierStats();
-    bauArtikelListe();
-    bauPruefung();
-    toast('🔄 Artikel-Sync vom anderen Gerät!');
-  }
+fbLauschen('lager/bestellmengen', fbDaten => {
+  LS.set('lager_bestellmengen', fbDaten);
+  bauMeldeliste();
+  bauArtikelListe();
+  bauPruefung();
 });
 
-
-// ── Original speichern-Funktionen mit Firebase erweitern ──
+// ── Speicher-Patches ──
 const _origPruefSpeichern = pruefSpeichern;
 pruefSpeichern = function(nr) {
   _origPruefSpeichern(nr);
-  fbIgnoreNext = true; setTimeout(()=>{fbIgnoreNext=false;},3000);
   fbSchreibeBestand(ladeBestand());
 };
 
-// Grenzen speichern patchen
 let _grenzeFbTimer = null;
 const _origGrenzeSpeichern = grenzeSpeichern;
 grenzeSpeichern = function(nr) {
@@ -1856,42 +1842,27 @@ grenzeSpeichern = function(nr) {
   _grenzeFbTimer = setTimeout(() => fbSchreibeGrenzen(ladeGrenzen()), 500);
 };
 
-// Artikel speichern patchen
 const _origSpeichereArtikel = speichereArtikel;
 speichereArtikel = function(a) {
   _origSpeichereArtikel(a);
-  fbIgnoreNextArtikel = true; setTimeout(()=>{fbIgnoreNextArtikel=false;},3000);
   fbSchreibeArtikel(a);
 };
 
-// Initialer Upload falls Firebase leer ist
+// ── Bestellmengen-Timer ──
+let _bestellFbTimer = null;
+
+// ── Initialer Upload falls Firebase leer ──
 db.ref('lager/bestand').once('value', snap => {
-  if (!snap.val()) {
+  if (!snap.val() || !snap.val().daten) {
     fbSchreibeBestand(ladeBestand());
     fbSchreibeGrenzen(ladeGrenzen());
   }
 });
-
 db.ref('lager/artikel').once('value', snap => {
-  if (!snap.val()) {
-    fbSchreibeArtikel(ladeArtikel());
-  }
+  if (!snap.val() || !snap.val().daten) fbSchreibeArtikel(ladeArtikel());
 });
-
-// Bestellmengen-Sync
-let fbIgnoreBestellmengen = false;
-db.ref('lager/bestellmengen').on('value', snap => {
-  if (fbIgnoreBestellmengen) { fbIgnoreBestellmengen = false; return; }
-  const fbM = snap.val();
-  if (!fbM) return;
-  LS.set('lager_bestellmengen', fbM);
-  bauMeldeliste();
-  bauArtikelListe();
-  bauPruefung();
-});
-
 db.ref('lager/bestellmengen').once('value', snap => {
-  if (!snap.val()) fbSchreibeBestellmengen(ladeBestellmengen());
+  if (!snap.val() || !snap.val().daten) fbSchreibeBestellmengen(ladeBestellmengen());
 });
 
 </script>

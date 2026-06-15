@@ -470,7 +470,7 @@ function wertAendern(typ, nr, delta) {
   if (typ==='bestand') {
     const b=ladeBestand(); b[nr]=Math.max(0,(b[nr]??0)+delta); LS.set('lager_bestand',b);
     const el=document.getElementById('e-b-'+nr); if(el) el.textContent=b[nr];
-    fbIgnore=true; setTimeout(()=>{fbIgnore=false;},3000); fbSchreibeBestand(b);
+    fbSchreibeBestand(b);
   } else {
     const g=ladeGrenzen(); if(!g[nr]){const a=ladeArtikel().find(x=>x.nr===nr)||{}; g[nr]={melde:a.melde??10,mindest:a.mindest??30};}
     g[nr][typ]=Math.max(0,(g[nr][typ]??0)+delta); LS.set('lager_grenzen',g);
@@ -488,8 +488,6 @@ let _bestellFbTimerPC = null;
 function _fbPushBestellmengen() {
   clearTimeout(_bestellFbTimerPC);
   _bestellFbTimerPC = setTimeout(() => {
-    fbIgnoreBestellmengen = true;
-    setTimeout(() => { fbIgnoreBestellmengen = false; }, 3000); // Auto-Reset
     fbSchreibeBestellmengen(ladeBestellmengen());
   }, 500);
 }
@@ -670,8 +668,8 @@ function importDaten(input) {
   reader.onload=e=>{
     try {
       const data=JSON.parse(e.target.result);
-      if(data.artikel) { LS.set('lager_artikel',data.artikel); fbIgnoreArtikel=true; setTimeout(()=>{fbIgnoreArtikel=false;},3000); fbSchreibeArtikel(data.artikel); }
-      if(data.bestand) { LS.set('lager_bestand',data.bestand); fbIgnore=true; setTimeout(()=>{fbIgnore=false;},3000); fbSchreibeBestand(data.bestand); }
+      if(data.artikel) { LS.set('lager_artikel',data.artikel); fbSchreibeArtikel(data.artikel); }
+      if(data.bestand) { LS.set('lager_bestand',data.bestand); fbSchreibeBestand(data.bestand); }
       if(data.grenzen) { LS.set('lager_grenzen',data.grenzen); fbSchreibeGrenzen(data.grenzen); }
       aktualisierStats(); bauStatus(); bauEingabe();
       toast('✅ Import erfolgreich!');
@@ -684,8 +682,8 @@ function allesZuruecksetzen() {
   if(!confirm('ACHTUNG: Alle Daten zurücksetzen?')) return;
   LS.set('lager_artikel',[...STAMM]); LS.set('lager_bestand',{...ISTBESTAND});
   localStorage.removeItem('lager_grenzen');
-  fbIgnoreArtikel=true; setTimeout(()=>{fbIgnoreArtikel=false;},3000); fbSchreibeArtikel([...STAMM]);
-  fbIgnore=true; setTimeout(()=>{fbIgnore=false;},3000); fbSchreibeBestand({...ISTBESTAND});
+  fbSchreibeArtikel([...STAMM]);
+  fbSchreibeBestand({...ISTBESTAND});
   aktualisierStats(); bauStatus(); bauEingabe();
   toast('✅ Zurückgesetzt!');
 }
@@ -711,7 +709,6 @@ function artikelHinzufuegen() {
   artikel.push({nr,name,lagerort:lager,melde,mindest});
   artikel.sort((a,b)=>parseInt(a.nr)-parseInt(b.nr));
   LS.set('lager_artikel',artikel);
-  fbIgnoreArtikel = true; setTimeout(()=>{fbIgnoreArtikel=false;},3000);
   fbSchreibeArtikel(artikel);
   document.getElementById('neu-nr').value='';
   document.getElementById('neu-name').value='';
@@ -725,7 +722,6 @@ function artikelLoeschen(nr) {
   if(!confirm('Artikel Nr.'+nr+' wirklich löschen?')) return;
   const artikel = ladeArtikel().filter(a=>a.nr!==nr);
   LS.set('lager_artikel',artikel);
-  fbIgnoreArtikel = true; setTimeout(()=>{fbIgnoreArtikel=false;},3000);
   fbSchreibeArtikel(artikel);
   bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
   toast('✅ Gelöscht!');
@@ -776,89 +772,69 @@ db.ref('.info/connected').on('value', snap => {
   setPcSyncStatus(!!snap.val());
 });
 
-function fbSchreibeBestand(b) {
-  db.ref('lager/bestand').set(b).catch(e => console.log('FB Fehler:', e));
-}
-function fbSchreibeGrenzen(g) {
-  db.ref('lager/grenzen').set(g).catch(e => console.log('FB Fehler:', e));
-}
-function fbSchreibeBestellmengen(m) {
-  db.ref('lager/bestellmengen').set(m).catch(e => console.log('FB Fehler:', e));
-}
-function fbSchreibeArtikel(a) {
-  db.ref('lager/artikel').set(a).catch(e => console.log('FB Fehler:', e));
+// ── Geräte-ID (einmalig pro Session) ──
+const GERAET_ID = 'pc_' + Math.random().toString(36).substr(2, 9);
+
+// ── Schreib-Funktionen mit Geräte-ID ──
+function fbSchreibe(pfad, daten) {
+  db.ref(pfad).set({ daten, von: GERAET_ID, ts: Date.now() })
+    .catch(e => console.log('FB Fehler:', e));
 }
 
+function fbSchreibeBestand(b)      { fbSchreibe('lager/bestand', b); }
+function fbSchreibeGrenzen(g)      { fbSchreibe('lager/grenzen', g); }
+function fbSchreibeArtikel(a)      { fbSchreibe('lager/artikel', a); }
+function fbSchreibeBestellmengen(m){ fbSchreibe('lager/bestellmengen', m); }
 
+// ── Listener-Fabrik: ignoriert eigene Writes ──
+function fbLauschen(pfad, callback) {
+  db.ref(pfad).on('value', snap => {
+    const val = snap.val();
+    if (!val || !val.daten) return;
+    if (val.von === GERAET_ID) return; // eigener Write → ignorieren
+    callback(val.daten);
+  });
+}
 
-// Änderungen vom Handy empfangen
-let fbIgnore = false;
-db.ref('lager/bestand').on('value', snap => {
-  if (fbIgnore) { fbIgnore = false; return; }
-  const fbB = snap.val();
-  if (!fbB) return;
-  if (JSON.stringify(fbB) !== JSON.stringify(ladeBestand())) {
-    LS.set('lager_bestand', fbB);
-    aktualisierStats(); bauStatus(); bauEingabe();
-    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
-    toast('🔄 Sync vom Handy!');
-  }
+// ── Listeners ──
+fbLauschen('lager/bestand', fbDaten => {
+  LS.set('lager_bestand', fbDaten);
+  aktualisierStats(); bauStatus(); bauEingabe();
+  if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+  toast('🔄 Sync vom Handy!');
 });
 
-db.ref('lager/grenzen').on('value', snap => {
-  const fbG = snap.val();
-  if (!fbG) return;
-  if (JSON.stringify(fbG) !== JSON.stringify(ladeGrenzen())) {
-    LS.set('lager_grenzen', fbG);
-    aktualisierStats(); bauStatus(); bauEingabe();
-    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
-  }
+fbLauschen('lager/grenzen', fbDaten => {
+  LS.set('lager_grenzen', fbDaten);
+  aktualisierStats(); bauStatus(); bauEingabe();
+  if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
 });
 
-// Artikel-Änderungen vom Handy empfangen
-let fbIgnoreArtikel = false;
-db.ref('lager/artikel').on('value', snap => {
-  if (fbIgnoreArtikel) { fbIgnoreArtikel = false; return; }
-  const fbA = snap.val();
-  if (!fbA) return;
-  if (JSON.stringify(fbA) !== JSON.stringify(ladeArtikel())) {
-    LS.set('lager_artikel', fbA);
-    bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
-    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
-    toast('🔄 Artikel-Sync vom Handy!');
-  }
+fbLauschen('lager/artikel', fbDaten => {
+  LS.set('lager_artikel', fbDaten);
+  bauArtikelListe(); aktualisierStats(); bauStatus(); bauEingabe();
+  if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+  toast('🔄 Artikel-Sync vom Handy!');
 });
 
-// Initialer Upload falls Firebase leer
+fbLauschen('lager/bestellmengen', fbDaten => {
+  LS.set('lager_bestellmengen', fbDaten);
+  if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
+  bauEingabe();
+});
+
+// ── Initialer Upload falls Firebase leer ──
 db.ref('lager/bestand').once('value', snap => {
-  if (!snap.val()) {
+  if (!snap.val() || !snap.val().daten) {
     fbSchreibeBestand(ladeBestand());
     fbSchreibeGrenzen(ladeGrenzen());
   }
 });
-
 db.ref('lager/artikel').once('value', snap => {
-  if (!snap.val()) {
-    fbSchreibeArtikel(ladeArtikel());
-  }
+  if (!snap.val() || !snap.val().daten) fbSchreibeArtikel(ladeArtikel());
 });
-
-// Bestellmengen-Sync
-let fbIgnoreBestellmengen = false;
-db.ref('lager/bestellmengen').on('value', snap => {
-  if (fbIgnoreBestellmengen) { fbIgnoreBestellmengen = false; return; }
-  const fbM = snap.val();
-  if (!fbM) return;
-  if (JSON.stringify(fbM) !== JSON.stringify(ladeBestellmengen())) {
-    LS.set('lager_bestellmengen', fbM);
-    if (document.getElementById('screen-bestellen').classList.contains('aktiv')) zeigeBestellTab(aktTab);
-    bauEingabe();
-    toast('🔄 Bestellmengen-Sync!');
-  }
-});
-
 db.ref('lager/bestellmengen').once('value', snap => {
-  if (!snap.val()) fbSchreibeBestellmengen(ladeBestellmengen());
+  if (!snap.val() || !snap.val().daten) fbSchreibeBestellmengen(ladeBestellmengen());
 });
 </script>
 </body>
